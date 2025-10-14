@@ -1,0 +1,168 @@
+from __future__ import annotations
+import asyncio
+from typing import Optional, Sequence
+from schemas import GameSchema
+from schemas.igdb_schemas import IGDBMetaSchema
+from utils.logging import get_logger
+from config.settings import settings
+from clients.steam_client import AsyncSteamClient
+from clients.igdb_client import AsyncIGDBClient
+from clients.telegram_client import TelegramPublisher
+from services.ranker import GameRanker
+from services.filter import GameFilter
+from db.repositories.repositories import GameRepository, IGDBRepository, PublicationRepository, AppRepository
+from models.game import GameModel
+from models.igdb import IGDBMeta
+from models.publication import PublicationRecord
+from config import constants as C
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+class Orchestrator:
+    def __init__(
+        self,
+        games_repo: GameRepository,
+        igdb_repo: IGDBRepository,
+        pub_repo: PublicationRepository,
+        steam: AsyncSteamClient,
+        igdb: AsyncIGDBClient,
+        publisher: TelegramPublisher,
+        ranker: GameRanker,
+        game_filter: GameFilter,
+        app_repo: AppRepository,
+    ) -> None:
+        self._games = games_repo
+        self._igdb = igdb_repo
+        self._pub = pub_repo
+        self._steam = steam
+        self._igdb_client = igdb
+        self._publisher = publisher
+        self._ranker = ranker
+        self._filter = game_filter
+        self._app_repo = app_repo
+        self._log = get_logger().bind(service="orchestrator")
+
+    async def save_to_db(self):
+        # a) Получаем список appids (будет очень большим). Ограничим первыми N для демо.
+        cycle_log = self._log.bind(service="save_to_db")
+        cycle_log.info("cycle_start")
+        # async for app_batch in self._steam.fetch_apps():
+        #     await self._app_repo.add_or_update(app_batch, search_field="appid")
+
+        # b) Детали Steam
+        games: list[GameSchema] = []
+
+        async def fetch_game(appid: int):
+            game = await self._steam.fetch_app_details(appid)
+            if game:
+                await self._games.upsert_game(game)
+                games.append(game)
+
+        apps = await self._app_repo.get_all(sort_by={'last_modified': -1}, limit=200)
+        appids = [app.appid for app in apps]
+        for appid in appids:
+            await fetch_game(appid)
+        # await _bounded_gather(fetch_game, appids, concurrency=C.ORCH_FETCH_GAME_CONCURRENCY)
+
+        if not games:
+            cycle_log.warning("no_games_fetched")
+            return
+
+        # c) IGDB meta для каждого (по имени)
+        metas: dict[int, IGDBMetaSchema] = {}
+
+        async def fetch_meta(g: GameSchema):
+            meta = await self._igdb_client.fetch_game_meta(name=g.name)
+            if meta:
+                meta.steam_appid = g.steam_appid
+                metas[g.steam_appid] = meta
+                await self._igdb.upsert_meta(meta)
+        for game in games:
+            await fetch_meta(game)
+        # await _bounded_gather(fetch_meta, games, concurrency=C.ORCH_FETCH_META_CONCURRENCY)
+
+        # d) Скоринг
+        scored: list[tuple[GameModel, Optional[IGDBMeta], float]] = []
+
+        async def score_game(g: GameModel):
+            meta = metas.get(g.steam_appid)
+            score = await self._ranker.evaluate(g, meta)
+            await self._games.update_score(g.steam_appid, score)
+            scored.append((g, meta, score))
+
+        await _bounded_gather(score_game, games, concurrency=C.ORCH_SCORE_CONCURRENCY)
+
+
+    async def run_cycle(self, top_n: Optional[int] = None, candidates_limit: int = C.ORCH_CANDIDATES_LIMIT_DEFAULT) -> None:
+        top_n = top_n or settings.TOP_N_TO_PUBLISH
+        cycle_log = self._log.bind(top_n=top_n, candidates_limit=candidates_limit)
+        cycle_log.info("cycle_start")
+
+        # a) Получаем список appids (будет очень большим). Ограничим первыми N для демо.
+        async for app_batch in self._steam.fetch_apps():
+            await self._app_repo.add_or_update(app_batch)
+
+        # b) Детали Steam
+        games: list[GameModel] = []
+        async def fetch_game(appid: int):
+            g = await self._steam.fetch_app_details(appid)
+            if g:
+                await self._games.upsert_game()
+                games.append(g)
+        await _bounded_gather(fetch_game, appids, concurrency=C.ORCH_FETCH_GAME_CONCURRENCY)
+
+        if not games:
+            cycle_log.warning("no_games_fetched")
+            return
+
+        # c) IGDB meta для каждого (по имени)
+        metas: dict[int, IGDBMeta] = {}
+        async def fetch_meta(g: GameModel):
+            meta = await self._igdb_client.fetch_game_meta(name=g.name)
+            if meta:
+                metas[g.steam_appid] = meta
+                await self._igdb.upsert_meta(meta)
+        await _bounded_gather(fetch_meta, games, concurrency=C.ORCH_FETCH_META_CONCURRENCY)
+
+        # d) Скоринг
+        scored: list[tuple[GameModel, Optional[IGDBMeta], float]] = []
+        async def score_game(g: GameModel):
+            meta = metas.get(g.steam_appid)
+            score = await self._ranker.evaluate(g, meta)
+            await self._games.update_score(g.steam_appid, score)
+            scored.append((g, meta, score))
+        await _bounded_gather(score_game, games, concurrency=C.ORCH_SCORE_CONCURRENCY)
+
+        # e) Фильтр + топ-N среди непубликованных
+        filtered = [x for x in scored if self._filter.should_publish(x[0], x[1], x[2])]
+        filtered.sort(key=lambda t: t[2], reverse=True)
+
+        unpublished = []
+        for g, m, s in filtered:
+            was = await self._pub.was_published(g.steam_appid)
+            if not was:
+                unpublished.append((g, m, s))
+            if len(unpublished) >= top_n:
+                break
+
+        # f) Публикации
+        for g, m, s in unpublished:
+            rec = PublicationRecord(steam_appid=g.steam_appid, score_at_publish=s)
+            msg_id = await self._publisher.publish(g, m, s)
+            if msg_id:
+                rec.message_id = msg_id
+                await self._pub.mark_published(rec)
+            else:
+                await self._pub.mark_failed(rec, error="publish_failed")
+
+        cycle_log.info("cycle_end", published=len(unpublished), candidates=len(games))
+
+
+async def _bounded_gather(func, iterable: Sequence, concurrency: int = 10):
+    sem = asyncio.Semaphore(concurrency)
+
+    async def worker(item):
+        async with sem:
+            return await func(item)
+
+    await asyncio.gather(*(worker(i) for i in iterable))
