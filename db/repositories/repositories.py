@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, UTC
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 from config.constants import GAMES_COLLECTION, IGDB_META_COLLECTION, PUBLICATIONS_COLLECTION, APPS_COLLECTION
@@ -24,17 +24,18 @@ class GameRepository(BaseRepository[GameModel]):
 
     async def upsert_game(self, data: GameSchema | list[GameSchema]) -> None:
         if isinstance(data, list):
-            data = [item.model_dump() for item in data]
+            data = [item.model_dump(mode='json') for item in data]
         else:
-            data = [data.model_dump()]
+            data = [data.model_dump(mode='json')]
         for game in data:
-            params = {"steam_appid": game.steam_appid, 'deleted_at': None}
+            params = {"steam_appid": game.get('steam_appid'), 'deleted_at': None}
             existing = await self._collection.find_one(params)
             if existing:
                 game.pop('updated_at', None)
                 await self._collection.update_one(
                     params,
-                    {"$set": game}
+                    {"$set": game},
+                    upsert=True,
                 )
             else:
                 await self._collection.insert_one(game)
@@ -69,7 +70,7 @@ class GameRepository(BaseRepository[GameModel]):
     async def update_score(self, appid: int, score: float) -> None:
         await self._collection.update_one(
             {"steam_appid": appid},
-            {"$set": {"last_score": score, "last_ranked_at": datetime.utcnow(), "updated_at": datetime.utcnow()}}
+            {"$set": {"last_score": score, "last_ranked_at": datetime.now(UTC), "updated_at": datetime.now(UTC)}}
         )
 
 
@@ -82,7 +83,7 @@ class IGDBRepository(BaseRepository[IGDBMeta]):
         super().__init__(collection_name, model, db)
 
     async def upsert_meta(self, meta: IGDBMetaSchema) -> None:
-        data = meta.model_dump()
+        data = meta.model_dump(mode='json')
         created_at = data.pop("created_at", None)
         updated_at = data.pop("updated_at", None)
         await self._collection.update_one(
@@ -98,7 +99,7 @@ class IGDBRepository(BaseRepository[IGDBMeta]):
     async def link_to_appid(self, igdb_id: int, steam_appid: int) -> None:
         await self._collection.update_one(
             {"igdb_id": igdb_id},
-            {"$set": {"steam_appid": steam_appid, "updated_at": datetime.utcnow()}}
+            {"$set": {"steam_appid": steam_appid, "updated_at": datetime.now(UTC)}}
         )
 
 
@@ -111,9 +112,9 @@ class PublicationRepository(BaseRepository[PublicationRecord]):
 
 
     async def mark_published(self, record: PublicationRecord) -> None:
-        data = record.model_dump()
+        data = record.model_dump(mode='json')
         data["status"] = PublishStatus.published
-        data["updated_at"] = datetime.utcnow()
+        data["updated_at"] = datetime.now(UTC)
         await self._collection.update_one(
             {"steam_appid": record.steam_appid, "channel": record.channel},
             {"$set": data, "$setOnInsert": {"created_at": record.created_at}},
@@ -121,11 +122,11 @@ class PublicationRepository(BaseRepository[PublicationRecord]):
         )
 
     async def mark_failed(self, record: PublicationRecord, error: str) -> None:
-        data = record.model_dump()
+        data = record.model_dump(mode='json')
         data["status"] = PublishStatus.failed
         data["error"] = error
         data["attempt"] = data.get("attempt", 0) + 1
-        data["updated_at"] = datetime.utcnow()
+        data["updated_at"] = datetime.now(UTC)
         await self._collection.update_one(
             {"steam_appid": record.steam_appid, "channel": record.channel},
             {"$set": data, "$setOnInsert": {"created_at": record.created_at}},

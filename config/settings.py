@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     TWITCH_OAUTH_URL: str = Field("https://id.twitch.tv/oauth2/token")
 
     # Steam
-    STEAM_STORE_BASE: str = Field("https://store.steampowered.com/api")
+    STEAM_STORE_BASE: str = Field("https://store.steampowered.com")
     STEAM_WEBAPI_BASE: str = Field("https://api.steampowered.com")
     STEAM_API_KEY: str = Field(...)
 

@@ -2,16 +2,17 @@ from __future__ import annotations
 import httpx
 import asyncio
 from typing import Any, Optional, AsyncGenerator
+import numpy as np
 from schemas import GameSchema
-from schemas.game_schemas import PriceInfoSchema, AppSchema
+from schemas.game_schemas import AppSchema
 from utils.retry import RetryPolicy
 from services.rate_limiter import SemaphoreLimiter
 from services.cache import RedisCache
 from utils.logging import get_logger
 from config.settings import settings
-from models.game import GameModel, ReviewStats, CurrentPlayersResponse, AchievementStatsResponse, \
-    AchievementPct, ReviewResponse, ReviewAuthor, ReviewItem, SteamExtendedInfo
-from datetime import datetime
+from models.game import CurrentPlayersResponse, AchievementStatsResponse, \
+    AchievementPct, ReviewResponse, ReviewAuthor, ReviewItem, SteamExtendedInfo, PriceInfo, NewsStats
+from datetime import datetime, UTC
 from config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -40,10 +41,14 @@ class AsyncSteamClient:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def fetch_apps(self, limit: int | None = None) -> AsyncGenerator[list[AppSchema], None]:
+    async def fetch_apps(
+        self, batch_size: int | None = None, since: int | datetime | None = None
+    ) -> AsyncGenerator[list[AppSchema], None]:
         url = f"{self._base_web_api_url}/IStoreService/GetAppList/v1/"
         params = {'key': self._api_key, 'format': self._format}
-        params.update({'max_results': limit} if limit else {})
+        if since:
+            params['if_modified_since'] = since if isinstance(since, int) else int(since.timestamp())
+        params.update({'max_results': batch_size} if batch_size else {})
         async with self._limiter:
             async def _do():
                 res = await self._client.get(url, params=params)
@@ -52,16 +57,18 @@ class AsyncSteamClient:
                 result = data.get("response", {})
                 return result
             while True:
-                result = await self._retry.run(_do())
+                result = await self._retry.run(_do)
                 have_more = result.get('have_more_results')
                 apps = result.get('apps', [])
-                if not have_more:
-                    break
                 last_app_id = result.get('last_appid')
                 params['last_appid'] = last_app_id
                 yield [AppSchema(**app) for app in apps]
+                if not have_more:
+                    break
 
-    async def fetch_app_news(self, app_id: int, count: int = 10, max_length: int | None = None) -> dict:
+    async def fetch_app_news(
+        self, app_id: int, count: int = C.NEWS_COUNT, max_length: int | None = None
+    ) -> dict:
         url = f"{self._base_web_api_url}/ISteamNews/GetNewsForApp/v0002/"
         params = {'key': self._api_key, 'format': self._format, 'appid': app_id, 'count': count}
         if max_length:
@@ -69,13 +76,47 @@ class AsyncSteamClient:
         async with self._limiter:
             async def _do():
                 res = await self._client.get(url, params=params)
+                if res.status_code in [403, 404]:
+                    return None
                 res.raise_for_status()
                 data = res.json()
                 return data.get('appnews', {}).get("newsitems", [])
 
             return await self._retry.run(_do)
 
-    async def fetch_full_info(self, appid: int) -> GameModel | None:
+    def compute_news_stats(self, timestamps: list[int]) -> NewsStats:
+        """Агрегирует статистику по новостям для игры."""
+
+        if not timestamps:
+            return NewsStats(
+                total_news_last_30d=0,
+                total_news_last_90d=0,
+                days_since_last_news=None,
+                avg_interval_days=None,
+            )
+
+        now = datetime.now(UTC).timestamp()
+        last_news_ts = max(timestamps)
+        days_since_last = (now - last_news_ts) / C.SECONDS_IN_DAY
+
+        sorted_ts = sorted(timestamps)
+        intervals = (
+            np.diff(sorted_ts) / C.SECONDS_IN_DAY if len(sorted_ts) > 1 else []
+        )
+
+        total_30d = sum(now - t < C.NEWS_WINDOW_30D * C.SECONDS_IN_DAY for t in timestamps)
+        total_90d = sum(now - t < C.NEWS_WINDOW_90D * C.SECONDS_IN_DAY for t in timestamps)
+
+        return NewsStats(
+            total_news_last_30d=total_30d,
+            total_news_last_90d=total_90d,
+            days_since_last_news=round(days_since_last, C.ROUND_PRECISION),
+            avg_interval_days=(
+                round(np.mean(intervals), C.ROUND_PRECISION) if len(intervals) else None
+            ),
+        )
+
+    async def fetch_full_info(self, appid: int) -> GameSchema | None:
         game = await self.fetch_app_details(appid)
         if not game:
             return None
@@ -83,29 +124,33 @@ class AsyncSteamClient:
         current_players = await self.fetch_current_players(appid)
         achievements = await self.fetch_achievements(appid)
         reviews = await self.fetch_reviews(appid)
+        news = await self.fetch_app_news(appid)
 
         # объединяем в модель (если ты расширишь GameModel или добавишь поле ext_info)
         game.ext_info = SteamExtendedInfo(
             steam_appid=appid,
             current_players=current_players.player_count if current_players else None,
             achievements=achievements,
-            review_summary=reviews
+            review_summary=reviews,
+            news_stats=self.compute_news_stats([n.get("date") for n in news]),
         )
         return game
 
     async def fetch_app_details(self, appid: int) -> Optional[GameSchema]:
-        url = f"{self._base_store_api_url}/appdetails"
+        url = f"{self._base_store_api_url}/api/appdetails"
         params = {'key': self._api_key, 'format': self._format, 'appids': appid, 'l': 'en', 'cc': 'us'}
         async with self._limiter:
             async def _do():
                 res = await self._client.get(url, params=params)
+                if res.status_code in [403, 404]:
+                    return None
                 res.raise_for_status()
                 payload = res.json()
                 raw = payload.get(str(appid))
                 if not raw or not raw.get("success"):
                     return None
                 return self._normalize_game(appid, raw.get("data", {}))
-            game = await self._retry.run(_do())
+            game = await self._retry.run(_do)
 
         return game
 
@@ -115,6 +160,8 @@ class AsyncSteamClient:
             return None
         release_date = None
         try:
+            if data.get("release_date", {}).get("coming_soon"):
+                raise ValueError('the game is not released yet')
             rd = data.get("release_date", {}).get("date")
             if rd:
                 release_date = datetime.strptime(rd, "%b %d, %Y") if "," in rd else datetime.strptime(rd, "%b %Y")
@@ -125,7 +172,7 @@ class AsyncSteamClient:
         price_overview = data.get("price_overview") or {}
         if price_overview:
             try:
-                price_info = PriceInfoSchema(
+                price_info = PriceInfo(
                     currency=price_overview.get("currency", "USD"),
                     initial=(price_overview.get("initial", C.ZERO) / C.STEAM_PRICE_DIVISOR),
                     final=(price_overview.get("final", C.ZERO) / C.STEAM_PRICE_DIVISOR),
@@ -134,33 +181,31 @@ class AsyncSteamClient:
             except Exception:
                 price_info = None
 
-        # Steam reviews API not in appdetails; we approximate from data if present
-        reviews = ReviewStats()
-
-        genres = [g.get("description") for g in data.get("genres", []) if g.get("description")]
-        screenshots = [s.get("path_full") for s in data.get("screenshots", []) if s.get("path_full")]
-        tags = []  # categories are objects; tags not directly present reliably in appdetails
-
         try:
             gm = GameSchema(
                 steam_appid=appid,
                 name=name,
                 short_description=data.get("short_description"),
-                detailed_description=None,
+                detailed_description=data.get("detailed_description"),
+                supported_languages=data.get("supported_languages"),
                 release_date=release_date,
-                genres=genres,
-                tags=tags,
+                genres=data.get("genres", []),
+                categories=[c.get("description") for c in data.get("categories", []) if c.get("description")],
                 developers=data.get("developers", []),
                 publishers=data.get("publishers", []),
                 website=data.get("website"),
                 header_image=data.get("header_image"),
                 background=data.get("background") or data.get("background_raw"),
-                screenshots=[s for s in screenshots if s],
+                screenshots=data.get("screenshots", []),
                 price=price_info,
-                reviews=reviews,
                 is_free=bool(data.get("is_free")),
+                recommendations=data.get("recommendations"),
+                platforms=data.get("platforms"),
+                package_groups=data.get("package_groups", []),
             )
+
             return gm
+
         except Exception:
             self._log.warning("normalize_failed", appid=appid)
             return None
@@ -171,6 +216,8 @@ class AsyncSteamClient:
         async with self._limiter:
             async def _do():
                 resp = await self._client.get(url, params=params)
+                if resp.status_code in [403, 404]:
+                    return None
                 resp.raise_for_status()
                 j = resp.json().get("response", {})
                 if "player_count" in j:
@@ -180,11 +227,13 @@ class AsyncSteamClient:
             return await self._retry.run(_do)
 
     async def fetch_achievements(self, appid: int) -> Optional[AchievementStatsResponse]:
-        url = f"{self._base_web_api_url}/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2"
+        url = f"{self._base_web_api_url}/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
         params = {'gameid': appid, 'format': self._format}
         async with self._limiter:
             async def _do():
                 resp = await self._client.get(url, params=params)
+                if resp.status_code in [403, 404]:
+                    return None
                 resp.raise_for_status()
                 j = resp.json().get("achievementpercentages", {})
                 ach_list = j.get("achievements", [])
@@ -206,7 +255,8 @@ class AsyncSteamClient:
         params = {
             'json': 1,
             'language': 'all',
-            'num_per_page': num_per_page
+            'num_per_page': num_per_page,
+            'day_range': C.REVIEW_DAY_RANGE
         }
         if cursor:
             params['cursor'] = cursor
@@ -214,6 +264,8 @@ class AsyncSteamClient:
         async with self._limiter:
             async def _do():
                 resp = await self._client.get(url, params=params)
+                if resp.status_code in [403, 404]:
+                    return None
                 resp.raise_for_status()
                 j = resp.json()
                 reviews = []
@@ -236,8 +288,14 @@ class AsyncSteamClient:
                             votes_funny=r.get("votes_funny"),
                         )
                     )
+                review_summary = j.get("query_summary", {})
+                ratio = review_summary.get("total_positive") / review_summary.get("total_reviews")
                 return ReviewResponse(
-                    total_reviews=j.get("total_reviews"),
+                    total_reviews=review_summary.get("total_reviews"),
+                    total_negative=review_summary.get("total_negative"),
+                    total_positive=review_summary.get("total_positive"),
+                    ratio = round(ratio, 3),
+                    review_score=review_summary.get("review_score"),
                     reviews=reviews,
                     cursor=j.get("cursor")
                 )

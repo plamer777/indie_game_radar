@@ -46,24 +46,25 @@ class Orchestrator:
         # a) Получаем список appids (будет очень большим). Ограничим первыми N для демо.
         cycle_log = self._log.bind(service="save_to_db")
         cycle_log.info("cycle_start")
-        # async for app_batch in self._steam.fetch_apps():
+        # last_mofied = await self._app_repo.get_max_value("last_modified")
+        # last_mofied = last_mofied.get('max_value')
+        # async for app_batch in self._steam.fetch_apps(since=last_mofied):
         #     await self._app_repo.add_or_update(app_batch, search_field="appid")
 
         # b) Детали Steam
-        games: list[GameSchema] = []
-
         async def fetch_game(appid: int):
-            game = await self._steam.fetch_app_details(appid)
+            game = await self._steam.fetch_full_info(appid)
             if game:
-                await self._games.upsert_game(game)
-                games.append(game)
+                await self._games.add_or_update(game, search_field="steam_appid")
 
-        apps = await self._app_repo.get_all(sort_by={'last_modified': -1}, limit=200)
+        apps = await self._app_repo.get_all(sort_by={'last_modified': -1}, limit=500)
         appids = [app.appid for app in apps]
         for appid in appids:
             await fetch_game(appid)
-        # await _bounded_gather(fetch_game, appids, concurrency=C.ORCH_FETCH_GAME_CONCURRENCY)
 
+        await _bounded_gather(fetch_game, appids, concurrency=C.ORCH_FETCH_GAME_CONCURRENCY)
+
+        games = await self._games.get_all(sort_by={'updated_at': -1}, limit=500)
         if not games:
             cycle_log.warning("no_games_fetched")
             return
@@ -97,41 +98,6 @@ class Orchestrator:
         top_n = top_n or settings.TOP_N_TO_PUBLISH
         cycle_log = self._log.bind(top_n=top_n, candidates_limit=candidates_limit)
         cycle_log.info("cycle_start")
-
-        # a) Получаем список appids (будет очень большим). Ограничим первыми N для демо.
-        async for app_batch in self._steam.fetch_apps():
-            await self._app_repo.add_or_update(app_batch)
-
-        # b) Детали Steam
-        games: list[GameModel] = []
-        async def fetch_game(appid: int):
-            g = await self._steam.fetch_app_details(appid)
-            if g:
-                await self._games.upsert_game()
-                games.append(g)
-        await _bounded_gather(fetch_game, appids, concurrency=C.ORCH_FETCH_GAME_CONCURRENCY)
-
-        if not games:
-            cycle_log.warning("no_games_fetched")
-            return
-
-        # c) IGDB meta для каждого (по имени)
-        metas: dict[int, IGDBMeta] = {}
-        async def fetch_meta(g: GameModel):
-            meta = await self._igdb_client.fetch_game_meta(name=g.name)
-            if meta:
-                metas[g.steam_appid] = meta
-                await self._igdb.upsert_meta(meta)
-        await _bounded_gather(fetch_meta, games, concurrency=C.ORCH_FETCH_META_CONCURRENCY)
-
-        # d) Скоринг
-        scored: list[tuple[GameModel, Optional[IGDBMeta], float]] = []
-        async def score_game(g: GameModel):
-            meta = metas.get(g.steam_appid)
-            score = await self._ranker.evaluate(g, meta)
-            await self._games.update_score(g.steam_appid, score)
-            scored.append((g, meta, score))
-        await _bounded_gather(score_game, games, concurrency=C.ORCH_SCORE_CONCURRENCY)
 
         # e) Фильтр + топ-N среди непубликованных
         filtered = [x for x in scored if self._filter.should_publish(x[0], x[1], x[2])]

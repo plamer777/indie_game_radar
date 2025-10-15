@@ -1,8 +1,8 @@
-from .game_schemas import GameSnapshotSchema, GameSchema, CurrentPlayersResponseSchema
+from .game_schemas import GameSnapshotSchema, GameSchema
 # ---------------------------------------------------------------------------------------------------------------------
 
 __all__ = [
     "GameSnapshotSchema",
-    "GameSchema",
-    "CurrentPlayersResponseSchema",
+    "GameSchema"
+
 ]

@@ -97,8 +97,10 @@ class BaseRepository(AbstractRepository, Generic[M]):
         # игнорируем статичные поля при сравнении тоже
         fields_ignored_for_comparison = set(ignore_fields) | set(static_fields)
         data = data if isinstance(data, list) else [data]
-        if isinstance(data[0], BaseModel):
-            data = [record.model_dump() for record in data]
+
+        if data and isinstance(data[0], BaseModel):
+            data = [record.model_dump(mode='json') for record in data]
+
         for record in data:
             record = deepcopy(record)
             try:

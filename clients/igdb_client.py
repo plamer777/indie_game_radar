@@ -111,7 +111,7 @@ class AsyncIGDBClient:
         game = data[0]
 
         # Popularity metrics from separate endpoints (if needed). For now basic metrics
-        metrics = await self.fetch_popularity_metrics(igdb_id)
+        metrics = await self.fetch_popularity_metrics(game.get('id'))
         meta = IGDBMetaSchema(
             igdb_id=game["id"],
             name=game.get("name", ""),
@@ -125,7 +125,7 @@ class AsyncIGDBClient:
             websites=[w.get("url") for w in (game.get("websites") or []) if w and w.get("url")],
             metrics=metrics,
         )
-        await self._cache.set_json(cache_key, meta.model_dump(), ttl=settings.CACHE_TTL_IGDB_META)
+        # await self._cache.set_json(cache_key, meta.model_dump(), ttl=settings.CACHE_TTL_IGDB_META)
         return meta
 
     async def fetch_popularity_metrics(self, igdb_id: int) -> PopularityMetricsSchema:

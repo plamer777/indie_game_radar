@@ -21,17 +21,17 @@ class AppModel(BaseAppModel):
     price_change_number: int = 0
 
 
+class NewsStats(BaseModel):
+    total_news_last_30d: int
+    total_news_last_90d: int
+    days_since_last_news: Optional[float]
+    avg_interval_days: Optional[float]
+
 class PriceInfo(BaseModel):
     currency: str = Field(..., min_length=C.CURRENCY_CODE_LEN, max_length=C.CURRENCY_CODE_LEN)
     initial: float = Field(..., ge=C.ZERO)
     final: float = Field(..., ge=C.ZERO)
     discount_percent: float = Field(C.ZERO, ge=C.ZERO, le=C.PERCENT_MAX)
-
-
-class ReviewStats(BaseModel):
-    total: int = Field(C.ZERO, ge=C.ZERO)
-    positive: int = Field(C.ZERO, ge=C.ZERO)
-    ratio: float = Field(0.0, ge=C.RATIO_MIN, le=C.RATIO_MAX)
 
 
 class PriceOption(BaseModel):
@@ -58,6 +58,7 @@ class PlatformsInfo(BaseModel):
 class GameModel(BaseAppModel):
     steam_appid: int = Field(..., ge=C.MIN_STEAM_APPID)
     name: str
+    supported_languages: Optional[str] = None
     short_description: Optional[str] = None
     detailed_description: Optional[str] = None
     release_date: Optional[datetime] = None
@@ -70,17 +71,16 @@ class GameModel(BaseAppModel):
     background: Optional[HttpUrl] = None
     screenshots: List[HttpUrl] = Field(default_factory=list)
     price: Optional[PriceInfo] = None
-    reviews: ReviewStats = Field(default_factory=ReviewStats)
     is_free: bool = False
     ext_info: Optional[SteamExtendedInfo] = None
     platforms: PlatformsInfo = Field(default_factory=PlatformsInfo)
+    recommendations: Optional[int] = None
+    categories: List[str] = Field(default_factory=list)
 
     package_groups: List[PackageGroup] = Field(default_factory=list)
 
     last_score: Optional[float] = None
     last_ranked_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     igdb_id: Optional[int] = None
 
@@ -128,6 +128,10 @@ class ReviewItem(BaseModel):
 
 class ReviewResponse(BaseModel):
     total_reviews: Optional[int]
+    total_negative: Optional[int]
+    total_positive: Optional[int]
+    review_score: Optional[int]
+    ratio: Optional[float]
     reviews: List[ReviewItem]
     cursor: Optional[str]  # если пагинация
 
@@ -138,3 +142,4 @@ class SteamExtendedInfo(BaseModel):
     current_players: Optional[int]
     achievements: Optional[AchievementStatsResponse]
     review_summary: Optional[ReviewResponse]
+    news_stats: Optional[NewsStats]

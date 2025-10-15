@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import Optional
-from models.game import GameModel, ReviewResponse
+from models.game import GameModel, ReviewResponse, NewsStats
 from models.igdb import IGDBMeta, PopularityMetrics
 from config import constants as C
 from math import log1p
-from datetime import datetime
+from datetime import datetime, UTC
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -13,25 +13,33 @@ class GameRanker:
         pass
 
     async def evaluate(
-        self, game: GameModel, meta: Optional[IGDBMeta], delta: float, delta_history: list[float]
+            self, game: GameModel, meta: Optional[IGDBMeta], delta: float, delta_history: list[float]
     ) -> float:
-        rating = self._rating_component(meta.metrics if meta else None)
-        popularity = self._popularity_component(meta.metrics if meta else None)
+        metrics = meta.metrics if meta else None
+        ext = game.ext_info or None
+
+        rating = self._rating_component(metrics)
+        popularity = self._popularity_component(metrics)
         recency = self._recency_component(game, meta)
         price_attr = self._price_attr_component(game)
         discount = self._discount_component(game)
         trend = self._trend_component(delta)
         penalty = self._volatility_penalty(delta_history)
+        review = self._review_component(ext.review_summary if ext else None)
+        news = self._news_component(ext.news_stats if ext else None)
 
         score = (
-            C.WEIGHT_RATING * rating
-            + C.WEIGHT_POPULARITY * popularity
-            + C.WEIGHT_RECENCY * recency
-            + C.WEIGHT_PRICE_ATTRACTIVENESS * price_attr
-            + C.WEIGHT_DISCOUNT * discount
-            + (C.WEIGHT_TREND * trend) - penalty
-
+                C.WEIGHT_RATING * rating
+                + C.WEIGHT_POPULARITY * popularity
+                + C.WEIGHT_RECENCY * recency
+                + C.WEIGHT_REVIEW * review
+                + C.WEIGHT_NEWS * news
+                + C.WEIGHT_PRICE_ATTRACTIVENESS * price_attr
+                + C.WEIGHT_DISCOUNT * discount
+                + C.WEIGHT_TREND * trend
+                - penalty
         )
+
         return max(0.0, min(1.0, score))
 
     def _trend_component(self, delta: Optional[dict]) -> float:
@@ -72,6 +80,27 @@ class GameRanker:
         count_factor = log1p(metrics.rating_count or 0) / log1p(C.RATING_COUNT_LOG_NORMALIZER)
         return base * min(1.0, C.RATING_COUNT_BLEND_BASE + C.RATING_COUNT_BLEND_SCALE * count_factor)
 
+    def _news_component(self, news: Optional[NewsStats]) -> float:
+        if not news:
+            return 0.0
+
+        # Чем меньше прошло времени с последней новости, тем лучше
+        recency_factor = 1.0 - min(1.0, (news.days_since_last_news or 999) / C.NEWS_DECAY_DAYS)
+
+        # Активность за последние 90 дней (до 5 новостей = максимум)
+        activity_factor = min(1.0, news.total_news_last_90d / C.NEWS_ACTIVITY_NORMALIZER)
+
+        # Усреднение с приоритетом свежести
+        return round(0.7 * recency_factor + 0.3 * activity_factor, 3)
+
+    def _review_component(self, review: Optional[ReviewResponse]) -> float:
+        if not review or not review.ratio or not review.total_reviews:
+            return 0.0
+
+        # ratio в диапазоне [0, 1], весим его количеством отзывов
+        volume_factor = min(1.0, log1p(review.total_reviews) / log1p(C.REVIEW_VOLUME_NORMALIZER))
+        return review.ratio * volume_factor
+
     def _popularity_component(self, metrics: Optional[PopularityMetrics]) -> float:
         if not metrics:
             return 0.0
@@ -84,7 +113,7 @@ class GameRanker:
         dt = meta.release_date if (meta and meta.release_date) else game.release_date
         if not dt:
             return C.UNKNOWN_RECENCY_BASE  # unknown recency, small bias
-        days = (datetime.utcnow() - dt).days
+        days = (datetime.now(UTC) - dt).days
         if days <= 0:
             return 1.0
         return max(0.0, 1.0 - min(1.0, days / C.RECENCY_YEAR_DENOMINATOR))
