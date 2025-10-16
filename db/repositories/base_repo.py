@@ -76,7 +76,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
         self, data: list[dict | BaseModel] | dict | BaseModel, search_field: str = 'id',
         ignore_fields: list[str] = IGNORED_FIELDS, static_fields: list[str] = STATIC_FIELDS,
         fields_to_remove: list[str] = None, update_all: bool = False, ignore_errors: bool = False
-    ) -> None:
+    ) -> set[str]:
         """This method adds or updates a records in the database
         :param data: a dict representing the data to add or update
         :param search_field: a str representing the field to search record by
@@ -94,6 +94,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
         ignore_fields = ignore_fields or []
         static_fields = static_fields or []
         fields_to_remove = fields_to_remove or []
+        changed = set()
         # игнорируем статичные поля при сравнении тоже
         fields_ignored_for_comparison = set(ignore_fields) | set(static_fields)
         data = data if isinstance(data, list) else [data]
@@ -117,7 +118,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
                         # если невалидный ObjectId — оставляем как есть
                         pass
 
-                if search_value in (None, ''):
+                if search_field != '_id' and search_value in (None, ''):
                     logging.warning(f'Search field value not found: {search_field}, skipping record')
                     continue
 
@@ -145,13 +146,16 @@ class BaseRepository(AbstractRepository, Generic[M]):
                             )
 
                             tasks.append(
-                                self._collection.update_one({search_field: search_value}, {'$set': update_doc}))
+                                self._collection.update_one({search_field: search_value}, {'$set': update_doc})
+                            )
+                            changed.add(search_value)
                         else:
                             # отличия только в статичных/игнорируемых полях — пропускаем
                             continue
                 else:
                     # новая запись — вставка как есть
                     tasks.append(self._collection.insert_one(record))
+                    changed.add(record.get(search_field))
 
             except Exception as e:
                 logging.error(f'Cannot prepare record to add or update: {e}')
@@ -160,11 +164,13 @@ class BaseRepository(AbstractRepository, Generic[M]):
 
         for completed_task in asyncio.as_completed(tasks):
             try:
-                await completed_task
+                 await completed_task
             except Exception as e:
                 logging.error(f'Cannot add or update record: {e}')
                 if not ignore_errors:
                     raise e
+
+        return changed
 
     @staticmethod
     def _calc_changes(existing_record: dict, new_record: dict, ignored_fields: set[str] | list[str]) -> dict:

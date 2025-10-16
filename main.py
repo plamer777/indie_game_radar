@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 from config.constants import SCHED_FIXED_HOURS_DEFAULT
 from config.settings import settings
-from db.repositories import AppRepository
+from db.repositories import AppRepository, GameSnapshotRepository
 from utils.logging import configure_logging, get_logger
 from services.cache import RedisCache
 from db.mongo import ensure_indexes
@@ -38,6 +38,7 @@ async def app_main() -> None:
     igdb_repo = IGDBRepository()
     pub_repo = PublicationRepository()
     app_repo = AppRepository()
+    game_snapshot_repo = GameSnapshotRepository()
 
     orchestrator = Orchestrator(
         games_repo=games_repo,
@@ -49,6 +50,7 @@ async def app_main() -> None:
         ranker=ranker,
         game_filter=gfilter,
         app_repo=app_repo,
+        game_snapshot_repo=game_snapshot_repo,
     )
 
     await orchestrator.save_to_db()

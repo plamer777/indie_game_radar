@@ -45,6 +45,7 @@ GAMES_COLLECTION = "games"
 IGDB_META_COLLECTION = "igdb_meta"
 PUBLICATIONS_COLLECTION = "publications"
 APPS_COLLECTION = "steam_apps"
+GAME_SNAPSHOTS_COLLECTION = "game_snapshots"
 STATIC_FIELDS = ['created_at']
 IGNORED_FIELDS = ['updated_at']
 # ---------------------------------------------------------------------------------------------------------------------

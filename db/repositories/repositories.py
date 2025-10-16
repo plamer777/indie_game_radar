@@ -3,9 +3,10 @@ from typing import Optional, List
 from datetime import datetime, UTC
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
-from config.constants import GAMES_COLLECTION, IGDB_META_COLLECTION, PUBLICATIONS_COLLECTION, APPS_COLLECTION
+from config.constants import GAMES_COLLECTION, IGDB_META_COLLECTION, PUBLICATIONS_COLLECTION, APPS_COLLECTION, \
+    GAME_SNAPSHOTS_COLLECTION
 from db.repositories.base_repo import BaseRepository
-from models.game import GameModel, AppModel
+from models.game import GameModel, AppModel, GameSnapshot
 from models.igdb import IGDBMeta
 from models.publication import PublicationRecord, PublishStatus
 from config import constants as C
@@ -142,6 +143,14 @@ class PublicationRepository(BaseRepository[PublicationRecord]):
 class AppRepository(BaseRepository[AppModel]):
     def __init__(
         self, collection_name: str = APPS_COLLECTION, model: type[AppModel] = AppModel,
+        db: AsyncIOMotorDatabase | None = None
+    ) -> None:
+        super().__init__(collection_name, model, db)
+
+
+class GameSnapshotRepository(BaseRepository[GameSnapshot]):
+    def __init__(
+        self, collection_name: str = GAME_SNAPSHOTS_COLLECTION, model: type[GameSnapshot] = GameSnapshot,
         db: AsyncIOMotorDatabase | None = None
     ) -> None:
         super().__init__(collection_name, model, db)

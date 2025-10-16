@@ -10,8 +10,8 @@ from services.rate_limiter import SemaphoreLimiter
 from services.cache import RedisCache
 from utils.logging import get_logger
 from config.settings import settings
-from models.game import CurrentPlayersResponse, AchievementStatsResponse, \
-    AchievementPct, ReviewResponse, ReviewAuthor, ReviewItem, SteamExtendedInfo, PriceInfo, NewsStats
+from models.game import CurrentPlayersResponse, \
+    AchievementPct, ReviewResponse, ReviewAuthor, ReviewItem, SteamExtendedInfo, PriceInfo, NewsStats, SteamNewsItem
 from datetime import datetime, UTC
 from config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
@@ -68,21 +68,26 @@ class AsyncSteamClient:
 
     async def fetch_app_news(
         self, app_id: int, count: int = C.NEWS_COUNT, max_length: int | None = None
-    ) -> dict:
-        url = f"{self._base_web_api_url}/ISteamNews/GetNewsForApp/v0002/"
-        params = {'key': self._api_key, 'format': self._format, 'appid': app_id, 'count': count}
-        if max_length:
-            params['maxlength'] = max_length
-        async with self._limiter:
-            async def _do():
-                res = await self._client.get(url, params=params)
-                if res.status_code in [403, 404]:
-                    return None
-                res.raise_for_status()
-                data = res.json()
-                return data.get('appnews', {}).get("newsitems", [])
+    ) -> list[SteamNewsItem] | None:
+        try:
+            url = f"{self._base_web_api_url}/ISteamNews/GetNewsForApp/v0002/"
+            params = {'key': self._api_key, 'format': self._format, 'appid': app_id, 'count': count}
+            if max_length:
+                params['maxlength'] = max_length
+            async with self._limiter:
+                async def _do():
+                    res = await self._client.get(url, params=params)
+                    if res.status_code in [403, 404]:
+                        return None
+                    res.raise_for_status()
+                    data = res.json()
+                    raw_news = data.get('appnews', {}).get("newsitems", [])
+                    return [SteamNewsItem(**news) for news in raw_news]
 
-            return await self._retry.run(_do)
+                return await self._retry.run(_do)
+        except Exception as e:
+            self._log.error("fetch_app_news_failed", appid=app_id, error=str(e))
+            return None
 
     def compute_news_stats(self, timestamps: list[int]) -> NewsStats:
         """Агрегирует статистику по новостям для игры."""
@@ -116,7 +121,7 @@ class AsyncSteamClient:
             ),
         )
 
-    async def fetch_full_info(self, appid: int) -> GameSchema | None:
+    async def fetch_full_app_details(self, appid: int) -> GameSchema | None:
         game = await self.fetch_app_details(appid)
         if not game:
             return None
@@ -127,32 +132,37 @@ class AsyncSteamClient:
         news = await self.fetch_app_news(appid)
 
         # объединяем в модель (если ты расширишь GameModel или добавишь поле ext_info)
+        game.last_news = news
         game.ext_info = SteamExtendedInfo(
             steam_appid=appid,
             current_players=current_players.player_count if current_players else None,
             achievements=achievements,
             review_summary=reviews,
-            news_stats=self.compute_news_stats([n.get("date") for n in news]),
+            news_stats=self.compute_news_stats([int(n.date.timestamp()) for n in news]),
         )
         return game
 
     async def fetch_app_details(self, appid: int) -> Optional[GameSchema]:
-        url = f"{self._base_store_api_url}/api/appdetails"
-        params = {'key': self._api_key, 'format': self._format, 'appids': appid, 'l': 'en', 'cc': 'us'}
-        async with self._limiter:
-            async def _do():
-                res = await self._client.get(url, params=params)
-                if res.status_code in [403, 404]:
-                    return None
-                res.raise_for_status()
-                payload = res.json()
-                raw = payload.get(str(appid))
-                if not raw or not raw.get("success"):
-                    return None
-                return self._normalize_game(appid, raw.get("data", {}))
-            game = await self._retry.run(_do)
+        try:
+            url = f"{self._base_store_api_url}/api/appdetails"
+            params = {'key': self._api_key, 'format': self._format, 'appids': appid, 'l': 'en', 'cc': 'us'}
+            async with self._limiter:
+                async def _do():
+                    res = await self._client.get(url, params=params)
+                    if res.status_code in [403, 404]:
+                        return None
+                    res.raise_for_status()
+                    payload = res.json()
+                    raw = payload.get(str(appid))
+                    if not raw or not raw.get("success"):
+                        return None
+                    return self._normalize_game(appid, raw.get("data", {}))
+                game = await self._retry.run(_do)
 
-        return game
+            return game
+        except Exception as e:
+            self._log.error("fetch_app_details_failed", appid=appid, error=str(e))
+            return None
 
     def _normalize_game(self, appid: int, data: dict[str, Any]) -> Optional[GameSchema]:
         name = data.get("name")
@@ -206,98 +216,113 @@ class AsyncSteamClient:
 
             return gm
 
-        except Exception:
-            self._log.warning("normalize_failed", appid=appid)
+        except Exception as e:
+            self._log.warning("normalize_failed", appid=appid, error=str(e))
             return None
 
     async def fetch_current_players(self, appid: int) -> Optional[CurrentPlayersResponse]:
-        url = f"{self._base_web_api_url}/ISteamUserStats/GetNumberOfCurrentPlayers/v1"
-        params = {'key': self._api_key, 'appid': appid, 'format': self._format}
-        async with self._limiter:
-            async def _do():
-                resp = await self._client.get(url, params=params)
-                if resp.status_code in [403, 404]:
+        try:
+            url = f"{self._base_web_api_url}/ISteamUserStats/GetNumberOfCurrentPlayers/v1"
+            params = {'key': self._api_key, 'appid': appid, 'format': self._format}
+            async with self._limiter:
+                async def _do():
+                    resp = await self._client.get(url, params=params)
+                    if resp.status_code in [403, 404]:
+                        return None
+                    resp.raise_for_status()
+                    j = resp.json().get("response", {})
+                    if "player_count" in j:
+                        return CurrentPlayersResponse(player_count=j["player_count"])
                     return None
-                resp.raise_for_status()
-                j = resp.json().get("response", {})
-                if "player_count" in j:
-                    return CurrentPlayersResponse(player_count=j["player_count"])
-                return None
 
-            return await self._retry.run(_do)
+                return await self._retry.run(_do)
+        except Exception as e:
+            self._log.error("fetch_current_players_failed", appid=appid, error=str(e))
+            return None
 
-    async def fetch_achievements(self, appid: int) -> Optional[AchievementStatsResponse]:
-        url = f"{self._base_web_api_url}/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
-        params = {'gameid': appid, 'format': self._format}
-        async with self._limiter:
-            async def _do():
-                resp = await self._client.get(url, params=params)
-                if resp.status_code in [403, 404]:
-                    return None
-                resp.raise_for_status()
-                j = resp.json().get("achievementpercentages", {})
-                ach_list = j.get("achievements", [])
-                return AchievementStatsResponse(
-                    achievements=[
-                        AchievementPct(name=a["name"], percent=a["percent"])
-                        for a in ach_list
-                        if "name" in a and "percent" in a
-                    ]
-                )
+    async def fetch_achievements(self, appid: int) -> Optional[list[AchievementPct]]:
+        try:
+            url = f"{self._base_web_api_url}/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
+            params = {'gameid': appid, 'format': self._format}
+            async with self._limiter:
+                async def _do():
+                    resp = await self._client.get(url, params=params)
+                    if resp.status_code in [403, 404]:
+                        return None
+                    resp.raise_for_status()
+                    j = resp.json().get("achievementpercentages", {})
+                    ach_list = j.get("achievements", [])
+                    return [
+                            AchievementPct(name=a["name"], percent=a["percent"])
+                            for a in ach_list if "name" in a and "percent" in a
+                        ]
 
-            return await self._retry.run(_do)
+                return await self._retry.run(_do)
+        except Exception as e:
+            self._log.error("fetch_achievements_failed", appid=appid, error=str(e))
+            return None
 
     async def fetch_reviews(
         self, appid: int, cursor: Optional[str] = None, num_per_page: int = 20
     ) -> Optional[ReviewResponse]:
         # This is Store Reviews API (not part of WebAPI), use store_base_url
-        url = f"{self._base_store_api_url}/appreviews/{appid}"
-        params = {
-            'json': 1,
-            'language': 'all',
-            'num_per_page': num_per_page,
-            'day_range': C.REVIEW_DAY_RANGE
-        }
-        if cursor:
-            params['cursor'] = cursor
+        try:
+            url = f"{self._base_store_api_url}/appreviews/{appid}"
+            params = {
+                'json': 1,
+                'language': 'all',
+                'num_per_page': num_per_page,
+                'day_range': C.REVIEW_DAY_RANGE
+            }
+            if cursor:
+                params['cursor'] = cursor
 
-        async with self._limiter:
-            async def _do():
-                resp = await self._client.get(url, params=params)
-                if resp.status_code in [403, 404]:
-                    return None
-                resp.raise_for_status()
-                j = resp.json()
-                reviews = []
-                for r in j.get("reviews", []):
-                    # map fields
-                    author = ReviewAuthor(
-                        steamid=r.get("author", {}).get("steamid"),
-                        num_games_owned=r.get("author", {}).get("num_games_owned"),
-                        num_reviews=r.get("author", {}).get("num_reviews"),
-                        played_for=r.get("author", {}).get("playtime_forever"),
-                    )
-                    reviews.append(
-                        ReviewItem(
-                            author=author,
-                            review=r.get("review"),
-                            language=r.get("language"),
-                            timestamp_created=r.get("timestamp_created"),
-                            voted_up=r.get("voted_up"),
-                            votes_up=r.get("votes_up"),
-                            votes_funny=r.get("votes_funny"),
+            async with self._limiter:
+                async def _do():
+                    resp = await self._client.get(url, params=params)
+                    if resp.status_code in [403, 404]:
+                        return None
+                    resp.raise_for_status()
+                    j = resp.json()
+                    reviews = []
+                    for r in j.get("reviews", []):
+                        # map fields
+                        author = ReviewAuthor(
+                            steamid=r.get("author", {}).get("steamid"),
+                            num_games_owned=r.get("author", {}).get("num_games_owned"),
+                            num_reviews=r.get("author", {}).get("num_reviews"),
+                            played_for=r.get("author", {}).get("playtime_forever"),
                         )
-                    )
-                review_summary = j.get("query_summary", {})
-                ratio = review_summary.get("total_positive") / review_summary.get("total_reviews")
-                return ReviewResponse(
-                    total_reviews=review_summary.get("total_reviews"),
-                    total_negative=review_summary.get("total_negative"),
-                    total_positive=review_summary.get("total_positive"),
-                    ratio = round(ratio, 3),
-                    review_score=review_summary.get("review_score"),
-                    reviews=reviews,
-                    cursor=j.get("cursor")
-                )
+                        reviews.append(
+                            ReviewItem(
+                                author=author,
+                                review=r.get("review"),
+                                language=r.get("language"),
+                                timestamp_created=r.get("timestamp_created"),
+                                voted_up=r.get("voted_up"),
+                                votes_up=r.get("votes_up"),
+                                votes_funny=r.get("votes_funny"),
+                            )
+                        )
+                    review_summary = j.get("query_summary", {})
 
-            return await self._retry.run(_do)
+                    try:
+                        ratio = review_summary.get("total_positive") / review_summary.get("total_reviews")
+                    except Exception:
+                        ratio = 0
+
+                    return ReviewResponse(
+                        total_reviews=review_summary.get("total_reviews"),
+                        total_negative=review_summary.get("total_negative"),
+                        total_positive=review_summary.get("total_positive"),
+                        ratio = round(ratio, 3),
+                        review_score=review_summary.get("review_score"),
+                        reviews=reviews,
+                        cursor=j.get("cursor")
+                    )
+
+                return await self._retry.run(_do)
+
+        except Exception as e:
+            self._log.error("fetch_reviews_failed", appid=appid, error=str(e))
+            return None

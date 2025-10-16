@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 from typing import Optional, Sequence
-from schemas import GameSchema
+from schemas import GameSchema, GameSnapshotSchema
 from schemas.igdb_schemas import IGDBMetaSchema
 from utils.logging import get_logger
 from config.settings import settings
@@ -10,7 +10,8 @@ from clients.igdb_client import AsyncIGDBClient
 from clients.telegram_client import TelegramPublisher
 from services.ranker import GameRanker
 from services.filter import GameFilter
-from db.repositories.repositories import GameRepository, IGDBRepository, PublicationRepository, AppRepository
+from db.repositories.repositories import GameRepository, IGDBRepository, PublicationRepository, AppRepository, \
+    GameSnapshotRepository
 from models.game import GameModel
 from models.igdb import IGDBMeta
 from models.publication import PublicationRecord
@@ -24,6 +25,7 @@ class Orchestrator:
         games_repo: GameRepository,
         igdb_repo: IGDBRepository,
         pub_repo: PublicationRepository,
+        game_snapshot_repo: GameSnapshotRepository,
         steam: AsyncSteamClient,
         igdb: AsyncIGDBClient,
         publisher: TelegramPublisher,
@@ -40,6 +42,7 @@ class Orchestrator:
         self._ranker = ranker
         self._filter = game_filter
         self._app_repo = app_repo
+        self._game_snapshot_repo = game_snapshot_repo
         self._log = get_logger().bind(service="orchestrator")
 
     async def save_to_db(self):
@@ -53,16 +56,34 @@ class Orchestrator:
 
         # b) Детали Steam
         async def fetch_game(appid: int):
-            game = await self._steam.fetch_full_info(appid)
+            game = await self._steam.fetch_full_app_details(appid)
             if game:
-                await self._games.add_or_update(game, search_field="steam_appid")
+                changed = await self._games.add_or_update(game, search_field="steam_appid")
+                if changed:
+                    total_achievements = len(game.ext_info.achievements or [])
+                    avg_unlock_percent = (
+                        sum(a.percent for a in game.ext_info.achievements or []) / total_achievements
+                        if total_achievements else None
+                    )
+                    snapshot = GameSnapshotSchema(
+                        steam_appid=game.steam_appid,
+                        price=game.price.final if game.price else None,
+                        discount_percent=game.price.discount_percent if game.price else None,
+                        current_players=game.ext_info.current_players,
+                        total_achievements=total_achievements,
+                        avg_unlock_percent=avg_unlock_percent,
+                        review_ratio=game.ext_info.review_summary.ratio if game.ext_info.review_summary else 0,
+                        avg_days_per_news=game.ext_info.news_stats.avg_interval_days
+                    )
+                    await self._game_snapshot_repo.add_new(snapshot.model_dump(mode="json"))
+
 
         apps = await self._app_repo.get_all(sort_by={'last_modified': -1}, limit=500)
         appids = [app.appid for app in apps]
         for appid in appids:
             await fetch_game(appid)
 
-        await _bounded_gather(fetch_game, appids, concurrency=C.ORCH_FETCH_GAME_CONCURRENCY)
+        # await _bounded_gather(fetch_game, appids, concurrency=C.ORCH_FETCH_GAME_CONCURRENCY)
 
         games = await self._games.get_all(sort_by={'updated_at': -1}, limit=500)
         if not games:
@@ -71,27 +92,33 @@ class Orchestrator:
 
         # c) IGDB meta для каждого (по имени)
         metas: dict[int, IGDBMetaSchema] = {}
-
-        async def fetch_meta(g: GameSchema):
-            meta = await self._igdb_client.fetch_game_meta(name=g.name)
+        #
+        async def fetch_meta(g: GameSchema | GameModel):
+            meta = await self._igdb_client.fetch_game_meta(name=g.name, steam_appid=g.steam_appid)
             if meta:
                 meta.steam_appid = g.steam_appid
                 metas[g.steam_appid] = meta
-                await self._igdb.upsert_meta(meta)
+                await self._igdb.add_or_update(meta, search_field="steam_appid")
+
         for game in games:
             await fetch_meta(game)
         # await _bounded_gather(fetch_meta, games, concurrency=C.ORCH_FETCH_META_CONCURRENCY)
 
         # d) Скоринг
+        games = await self._games.get_all(sort_by={'updated_at': -1}, limit=500)
+        appids = [g.steam_appid for g in games]
+        metas = await self._igdb.get_all({"steam_appid": {"$in": appids}}, sort_by={'updated_at': -1}, limit=500)
+        metas = {meta.steam_appid: meta for meta in metas}
         scored: list[tuple[GameModel, Optional[IGDBMeta], float]] = []
 
         async def score_game(g: GameModel):
             meta = metas.get(g.steam_appid)
             score = await self._ranker.evaluate(g, meta)
             await self._games.update_score(g.steam_appid, score)
-            scored.append((g, meta, score))
-
-        await _bounded_gather(score_game, games, concurrency=C.ORCH_SCORE_CONCURRENCY)
+            # scored.append((g, meta, score))
+        for g in games:
+            await score_game(g)
+        # await _bounded_gather(score_game, games, concurrency=C.ORCH_SCORE_CONCURRENCY)
 
 
     async def run_cycle(self, top_n: Optional[int] = None, candidates_limit: int = C.ORCH_CANDIDATES_LIMIT_DEFAULT) -> None:

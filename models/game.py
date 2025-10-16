@@ -3,17 +3,11 @@ from pydantic import BaseModel, Field, HttpUrl
 from typing import Optional, List
 from datetime import datetime
 from config import constants as C
+from models.base import BaseDBModel
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class BaseAppModel(BaseModel):
-    id: str = Field(..., validation_alias="_id")
-    created_at: datetime
-    updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-
-class AppModel(BaseAppModel):
+class AppModel(BaseDBModel):
     appid: int
     name: str
     status: str
@@ -26,6 +20,21 @@ class NewsStats(BaseModel):
     total_news_last_90d: int
     days_since_last_news: Optional[float]
     avg_interval_days: Optional[float]
+
+
+class SteamNewsItem(BaseModel):
+    gid: str = Field(..., description="Уникальный идентификатор новости в Steam")
+    title: str = Field(..., description="Заголовок новости")
+    url: Optional[HttpUrl] = Field(None, description="URL новости (часто ведет на внешний ресурс)")
+    is_external_url: bool = Field(False, description="Флаг, указывает внешний ли источник")
+    author: Optional[str] = Field(None, description="Автор публикации")
+    contents: Optional[str] = Field(None, description="HTML содержимое новости")
+    feedlabel: Optional[str] = Field(None, description="Отображаемое название источника (например, PCGamesN)")
+    feedname: Optional[str] = Field(None, description="Системное имя фида")
+    feed_type: Optional[int] = Field(None, description="Тип фида (0 = обычный, 1 = RSS и т.д.)")
+    appid: int = Field(..., description="Steam AppID игры, к которой относится новость")
+    date: datetime = Field(..., description="Дата публикации в формате datetime")
+
 
 class PriceInfo(BaseModel):
     currency: str = Field(..., min_length=C.CURRENCY_CODE_LEN, max_length=C.CURRENCY_CODE_LEN)
@@ -55,7 +64,7 @@ class PlatformsInfo(BaseModel):
     windows: bool = False
 
 
-class GameModel(BaseAppModel):
+class GameModel(BaseDBModel):
     steam_appid: int = Field(..., ge=C.MIN_STEAM_APPID)
     name: str
     supported_languages: Optional[str] = None
@@ -78,22 +87,23 @@ class GameModel(BaseAppModel):
     categories: List[str] = Field(default_factory=list)
 
     package_groups: List[PackageGroup] = Field(default_factory=list)
-
+    last_news: List[SteamNewsItem] = Field(default_factory=list)
     last_score: Optional[float] = None
     last_ranked_at: Optional[datetime] = None
 
     igdb_id: Optional[int] = None
 
 
-class GameSnapshot(BaseAppModel):
+class GameSnapshot(BaseDBModel):
     steam_appid: int
     snapshot_time: datetime
     price: Optional[float]
-    discount_percent: Optional[int]
+    discount_percent: Optional[float]
     current_players: Optional[int]
     review_ratio: Optional[float]
-    achievements_pct: Optional[dict[str, float]]
-    news_count: Optional[int]
+    total_achievements: Optional[int]
+    avg_unlock_percent: Optional[float]
+    avg_days_per_news: Optional[float]
 
 
 class CurrentPlayersResponse(BaseModel):
@@ -103,10 +113,6 @@ class CurrentPlayersResponse(BaseModel):
 class AchievementPct(BaseModel):
     name: str
     percent: float
-
-
-class AchievementStatsResponse(BaseModel):
-    achievements: List[AchievementPct]
 
 
 class ReviewAuthor(BaseModel):
@@ -140,6 +146,6 @@ class ReviewResponse(BaseModel):
 class SteamExtendedInfo(BaseModel):
     steam_appid: int
     current_players: Optional[int]
-    achievements: Optional[AchievementStatsResponse]
+    achievements: Optional[list[AchievementPct]]
     review_summary: Optional[ReviewResponse]
     news_stats: Optional[NewsStats]

@@ -3,7 +3,7 @@ from pydantic import Field, HttpUrl, field_validator, AliasPath
 from typing import Optional, List, Literal
 from datetime import datetime
 from config import constants as C
-from models.game import PlatformsInfo, PackageGroup, PriceInfo, SteamExtendedInfo
+from models.game import PlatformsInfo, PackageGroup, PriceInfo, SteamExtendedInfo, SteamNewsItem
 from schemas.base import BaseSchema
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -37,6 +37,7 @@ class GameSchema(BaseSchema):
     platforms: PlatformsInfo = Field(default_factory=PlatformsInfo)
     categories: List[str] = Field(default_factory=list)
     package_groups: List[PackageGroup] = Field(default_factory=list)
+    last_news: List[SteamNewsItem] = Field(default_factory=list)
 
     recommendations: Optional[int] = Field(None, validation_alias=AliasPath('recommendations', 'total'))
     last_score: Optional[float] = None
@@ -69,8 +70,9 @@ class GameSnapshotSchema(BaseSchema):
     steam_appid: int
     snapshot_time: datetime = Field(default_factory=datetime.now)
     price: Optional[float]
-    discount_percent: Optional[int]
+    discount_percent: Optional[float]
     current_players: Optional[int]
     review_ratio: Optional[float]
-    achievements_pct: Optional[dict[str, float]]
-    news_count: Optional[int]
+    total_achievements: Optional[int]
+    avg_unlock_percent: Optional[float]
+    avg_days_per_news: Optional[float]
