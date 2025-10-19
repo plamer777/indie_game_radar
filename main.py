@@ -1,19 +1,20 @@
 from __future__ import annotations
 import asyncio
-from config.constants import SCHED_FIXED_HOURS_DEFAULT
-from config.settings import settings
-from db.repositories import AppRepository, GameSnapshotRepository
-from utils.logging import configure_logging, get_logger
-from services.cache import RedisCache
-from db.mongo import ensure_indexes
-from db.repositories import GameRepository, IGDBRepository, PublicationRepository
-from clients.steam_client import AsyncSteamClient
-from clients.igdb_client import AsyncIGDBClient
-from clients.telegram_client import TelegramPublisher
-from services.ranker import GameRanker
-from services.filter import GameFilter
-from services.orchestrator import Orchestrator
-from scheduler.scheduler import AsyncScheduler
+from src.config.constants import SCHED_FIXED_HOURS_DEFAULT
+from src.config import settings
+from src.db.repositories import AppRepository, GameSnapshotRepository
+from src.utils.logging import configure_logging, get_logger
+from src.managers.cache import RedisCache
+from src.db.mongo import ensure_indexes
+from src.db.repositories import GameRepository, IGDBRepository, PublicationRepository
+from src.clients.steam_client import AsyncSteamClient
+from src.clients.igdb_client import AsyncIGDBClient
+from src.clients.telegram_client import TelegramPublisher
+from src.services.rank_service.rankers.ranker import GameRanker
+from src.services.rank_service.filters.filter import GameFilter
+from src.services.orchestrator import Orchestrator
+from src.scheduler.scheduler import AsyncScheduler
+# ---------------------------------------------------------------------------------------------------------------------
 
 
 async def app_main() -> None:
