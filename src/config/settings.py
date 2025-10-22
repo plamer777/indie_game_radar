@@ -34,7 +34,6 @@ class Settings(BaseSettings):
 
     # App behavior
     SCORE_PUBLISH_THRESHOLD: float = Field(0.7)
-    TOP_N_TO_PUBLISH: int = Field(5)
     RUN_INTERVAL_SECONDS: int = Field(4 * 60 * 60, description="Interval between cycles; if <=0 then single run")
     ONE_SHOT: bool = Field(False, description="Run once and exit when True")
 
@@ -49,6 +48,10 @@ class Settings(BaseSettings):
     # Caching TTLs (seconds)
     CACHE_TTL_STEAM_DETAILS: int = Field(60 * 60)  # 1 hour
     CACHE_TTL_IGDB_META: int = Field(6 * 60 * 60)  # 6 hours
+
+    # OpenAI
+    OPEN_AI_KEY: str = Field(...)
+    OPENAI_API_BASE: str = Field("https://api.openai.com/v1")
 
 
 settings = Settings()  # evaluated at import time intentionally

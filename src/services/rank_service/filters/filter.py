@@ -79,7 +79,7 @@ class GameFilter:
         if not dt:
             # unknown release date: allow, other checks will gate
             return True
-        years = (datetime.utcnow() - dt).days / C.RECENCY_YEAR_DENOMINATOR
+        years = (datetime.now() - dt).days / C.RECENCY_YEAR_DENOMINATOR
         if years <= C.FILTER_MAX_YEARS_SINCE_RELEASE:
             return True
         # If older than max, only allow with strong score

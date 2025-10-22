@@ -89,39 +89,9 @@ class AsyncSteamClient:
             self._log.error("fetch_app_news_failed", appid=app_id, error=str(e))
             return None
 
-    def compute_news_stats(self, timestamps: list[int]) -> NewsStats:
-        """Агрегирует статистику по новостям для игры."""
-
-        if not timestamps:
-            return NewsStats(
-                total_news_last_30d=0,
-                total_news_last_90d=0,
-                days_since_last_news=None,
-                avg_interval_days=None,
-            )
-
-        now = datetime.now(UTC).timestamp()
-        last_news_ts = max(timestamps)
-        days_since_last = (now - last_news_ts) / C.SECONDS_IN_DAY
-
-        sorted_ts = sorted(timestamps)
-        intervals = (
-            np.diff(sorted_ts) / C.SECONDS_IN_DAY if len(sorted_ts) > 1 else []
-        )
-
-        total_30d = sum(now - t < C.NEWS_WINDOW_30D * C.SECONDS_IN_DAY for t in timestamps)
-        total_90d = sum(now - t < C.NEWS_WINDOW_90D * C.SECONDS_IN_DAY for t in timestamps)
-
-        return NewsStats(
-            total_news_last_30d=total_30d,
-            total_news_last_90d=total_90d,
-            days_since_last_news=round(days_since_last, C.ROUND_PRECISION),
-            avg_interval_days=(
-                round(np.mean(intervals), C.ROUND_PRECISION) if len(intervals) else None
-            ),
-        )
-
     async def fetch_full_app_details(self, appid: int) -> GameSchema | None:
+        log = self._log.bind(appid=appid)
+        log.info("fetch_full_app_details")
         game = await self.fetch_app_details(appid)
         if not game:
             return None
@@ -138,7 +108,6 @@ class AsyncSteamClient:
             current_players=current_players.player_count if current_players else None,
             achievements=achievements,
             review_summary=reviews,
-            news_stats=self.compute_news_stats([int(n.date.timestamp()) for n in news]),
         )
         return game
 
@@ -170,8 +139,6 @@ class AsyncSteamClient:
             return None
         release_date = None
         try:
-            if data.get("release_date", {}).get("coming_soon"):
-                raise ValueError('the game is not released yet')
             rd = data.get("release_date", {}).get("date")
             if rd:
                 release_date = datetime.strptime(rd, "%b %d, %Y") if "," in rd else datetime.strptime(rd, "%b %Y")
@@ -199,6 +166,7 @@ class AsyncSteamClient:
                 detailed_description=data.get("detailed_description"),
                 supported_languages=data.get("supported_languages"),
                 release_date=release_date,
+                is_coming_soon=data.get("release_date", {}).get("coming_soon"),
                 genres=data.get("genres", []),
                 categories=[c.get("description") for c in data.get("categories", []) if c.get("description")],
                 developers=data.get("developers", []),

@@ -1,11 +1,17 @@
 from __future__ import annotations
+import asyncio
+import logging
+from datetime import datetime, timedelta
 from typing import Optional
+from src.config.constants import SCHED_FIXED_HOURS_DEFAULT
+from src.scheduler.scheduler import AsyncScheduler
 from src.services.data_service import APIHarvesterService
 from src.services.publisher_service import PublisherService
 from src.services.rank_service.rank_engine_service import RankEngineService
+from src.utils.common import execute_in_thread
+from src.config import constants as C
 from src.utils.logging import get_logger
 from src.config.settings import settings
-from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -15,28 +21,100 @@ class Orchestrator:
         api_harvester: APIHarvesterService,
         rank_engine: RankEngineService,
         publisher: PublisherService,
+        scheduler: AsyncScheduler,
     ) -> None:
         self._api_harvester = api_harvester
         self._rank_engine = rank_engine
         self._publisher = publisher
         self._log = get_logger().bind(service="orchestrator")
+        self._scheduler = scheduler
 
-    async def save_to_db(self):
+    async def start(self):
+        await self._start_harvester()
+        await self._start_ranker()
+
+        while True:
+            await asyncio.sleep(3600)
+
+        # await self._run_cycle(top_n=settings.TOP_N_TO_PUBLISH)
+        async def run_once():
+            try:
+                await self._run_cycle(top_n=settings.TOP_N_TO_PUBLISH)
+            except Exception as e:
+                self._log.error("cycle_error", error=str(e))
+
+        try:
+            await self._scheduler.run_fixed_hours(run_once, SCHED_FIXED_HOURS_DEFAULT)
+        except asyncio.CancelledError:
+            pass
+
+    @execute_in_thread
+    async def _start_harvester(self):
         # a) Получаем список appids (будет очень большим). Ограничим первыми N для демо.
+        logging.info('harvester_start')
         cycle_log = self._log.bind(service="save_to_db")
         cycle_log.info("cycle_start")
-        await self._api_harvester.fetch_all()
 
+        while True:
+            cycle_start = datetime.now()
+            cycle_end = cycle_start.replace(hour=12, minute=0, second=0, microsecond=0)
 
-    async def run_cycle(
-        self, top_n: Optional[int] = None, candidates_limit: int = C.ORCH_CANDIDATES_LIMIT_DEFAULT
-    ) -> None:
-        top_n = top_n or settings.TOP_N_TO_PUBLISH
-        cycle_log = self._log.bind(top_n=top_n, candidates_limit=candidates_limit)
+            # если уже после 12 — перенести конец на завтра
+            if cycle_end <= cycle_start:
+                cycle_end += timedelta(days=1)
+
+            self._log.info(f"starting_cycle_until={cycle_end.isoformat()}")
+
+            try:
+                await self._api_harvester.fetch_cycle(until=cycle_end)
+            except Exception as e:
+                self._log.error("fetch_cycle_error", exc_info=True, error=e)
+                await asyncio.sleep(60)  # не спамить при авариях
+
+            # дожидаемся следующего окна (до следующего 12 UTC)
+            now = datetime.now()
+            if now < cycle_end:
+                sleep_seconds = (cycle_end - now).total_seconds()
+                self._log.info(f"sleeping_until_next_cycle ({sleep_seconds / 3600:.1f}h)")
+                await asyncio.sleep(sleep_seconds)
+
+    @execute_in_thread
+    async def _start_ranker(self):
+        cycle_log = self._log.bind(service="ranker")
         cycle_log.info("cycle_start")
 
-        await self._rank_engine.rank_all()
+        while True:
+            try:
+                await self._rank_engine.rank_all()
+            except Exception as e:
+                cycle_log.error("ranker_cycle_error", exc_info=True, error=e)
+
+            await asyncio.sleep(C.ORCH_RANKING_INTERVAL)
+
+    async def _run_cycle(
+        self, top_n: Optional[int] = None
+    ) -> None:
+        """The method runs a full cycle of ranking and publishing.
+        :param top_n: The number of games to publish.
+        """
+        top_n = top_n or settings.TOP_N_TO_PUBLISH
+        cycle_log = self._log.bind(top_n=top_n)
+        cycle_log.info("cycle_start")
+        filtered_games_to_publish = 0
+        filtered_news_to_publish = 0
+        for attempt in range(5):
+            filtered_games_to_publish = await self._rank_engine.filter_games(top_n)
+            filtered_news_to_publish = await self._rank_engine.filter_news(top_n - filtered_games_to_publish)
+            if filtered_games_to_publish + filtered_news_to_publish >= top_n:
+                break
+
+            await asyncio.sleep(300)
+        if filtered_games_to_publish + filtered_news_to_publish < top_n:
+            cycle_log.warning(
+                "not_enough_content_to_publish", filtered_games_to_publish=filtered_games_to_publish,
+                filtered_news_to_publish=filtered_news_to_publish,
+                total_content=filtered_games_to_publish + filtered_news_to_publish
+            )
 
         # f) Публикации
         await self._publisher.publish_all()
-

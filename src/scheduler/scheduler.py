@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 from typing import Awaitable, Callable
 from src.config.constants import SCHED_FIXED_HOURS_DEFAULT
+from src.utils.common import execute_in_thread
 from src.utils.logging import get_logger
 from src.config import constants as C
 from datetime import datetime, timedelta
@@ -17,6 +18,7 @@ class AsyncScheduler:
     def stop(self) -> None:
         self._running = False
 
+    @execute_in_thread
     async def run_fixed_hours(
         self, task: Callable[[], Awaitable[None]], hours: list[int] = SCHED_FIXED_HOURS_DEFAULT
     ) -> None:
@@ -46,7 +48,9 @@ class AsyncScheduler:
                         break
                 if next_run is None:
                     # earliest hour tomorrow
-                    next_run = (now + timedelta(days=1)).replace(hour=schedule_hours[0], minute=0, second=0, microsecond=0)
+                    next_run = (now + timedelta(days=1)).replace(
+                        hour=schedule_hours[0], minute=0, second=0, microsecond=0
+                    )
 
                 sleep_seconds = max(C.SCHED_MIN_SLEEP_SECONDS, (next_run - now).total_seconds())
                 await asyncio.sleep(sleep_seconds)

@@ -26,8 +26,9 @@ def configure_logging(level: int = logging.INFO) -> None:
     logging.basicConfig(
         level=level,
         format="%(message)s",
-        stream=sys.stdout,
+        # stream=sys.stdout,
     )
 
+configure_logging()
 
 get_logger = structlog.get_logger

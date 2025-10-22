@@ -1,116 +1,188 @@
 from __future__ import annotations
-from typing import Optional
-from src.models.game import GameModel, ReviewResponse, NewsStats
+from typing import Optional, Iterable
+from src.models.game import GameModel, ReviewResponse, NewsStats, GameSnapshot
 from src.models import IGDBMeta, PopularityMetrics
 from src.config import constants as C
 from math import log1p
-from datetime import datetime, UTC
-
+from datetime import datetime
 from src.schemas import GameSnapshotSchema
-
-
+from src.utils.common import clamp, safe_div
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class GameRanker:
-    def __init__(self) -> None:
-        pass
 
     async def evaluate(
-            self, game: GameModel, meta: Optional[IGDBMeta], snapshots: list[GameSnapshotSchema]
+        self,
+        game: GameModel,
+        meta: Optional[IGDBMeta],
+        snapshots: list[GameSnapshot | GameSnapshotSchema],
     ) -> float:
-        metrics = meta.metrics if meta else None
-        ext = game.ext_info or None
-        delta, delta_history = self._compute_snapshot_deltas(snapshots)
+        """
+        Compute final game score in [0, 1] using both IGDB and Steam metrics.
+        Handles cases where meta data is missing and applies volatility/completeness adjustments.
+        """
 
+        ext = game.ext_info or None
+        metrics = meta.metrics if meta else None
+
+        # ---- 1. Trend & Volatility ----
+        trend_metrics = self._compute_trend(snapshots)
+        volatility = self._compute_volatility(snapshots)
+        avg_players = self._compute_avg_players(snapshots)
+        # completeness_factor = min(1.0, len(snapshots) / C.MIN_SNAPSHOTS_REQUIRED)
+
+        # ---- 2. IGDB ----
         rating = self._rating_component(metrics)
         popularity = self._popularity_component(metrics)
         recency = self._recency_component(game, meta)
+
+        # ---- 3. Steam ----
         price_attr = self._price_attr_component(game)
         discount = self._discount_component(game)
-        trend = self._trend_component(delta)
-        penalty = self._volatility_penalty(delta_history)
         review = self._review_component(ext.review_summary if ext else None)
         news = self._news_component(ext.news_stats if ext else None)
 
-        score = (
-                C.WEIGHT_RATING * rating
-                + C.WEIGHT_POPULARITY * popularity
-                + C.WEIGHT_RECENCY * recency
-                + C.WEIGHT_REVIEW * review
-                + C.WEIGHT_NEWS * news
-                + C.WEIGHT_PRICE_ATTRACTIVENESS * price_attr
-                + C.WEIGHT_DISCOUNT * discount
-                + C.WEIGHT_TREND * trend
-                - penalty
+        # ---- 4. Recommendations ----
+        recommendations = 0.0
+        if getattr(game, "recommendations", None):
+            rec_count = game.recommendations or 0
+            # лог-нормализация
+            recommendations = min(1.0, log1p(rec_count) / C.RECOMMENDATION_LOG_SCALE)
+
+        # ---- 5. Recency boost ----
+        recency_boost = 1.0
+        if game.release_date:
+            age_days = (datetime.now() - game.release_date).days
+            if age_days < C.RECENT_GAME_AGE_DAYS:
+                # плавное затухание усиления со временем
+                recency_boost = C.RECENCY_BASE_BOOST - (age_days / C.RECENCY_FADE_DIVISOR)
+                recency_boost = clamp(recency_boost, 1.0, C.RECENCY_MAX_BOOST)
+
+        # ---- 6. Trend ----
+        trend_value = clamp(trend_metrics.get("momentum", 0.0), 0.0, 1.0)
+
+        # ---- 7. Adaptive IGDB factor ----
+        igdb_factor = C.IGDB_FULL_DATA_FACTOR if (meta and metrics) else C.IGDB_PARTIAL_DATA_FACTOR
+
+        # ---- 8. Aggregation ----
+        review_strength = (review * C.REVIEW_WEIGHT + recommendations * C.RECOMMENDATION_WEIGHT) * recency_boost
+
+        raw_score = (
+            igdb_factor * (
+            C.WEIGHT_RATING * rating +
+            C.WEIGHT_POPULARITY * popularity +
+            C.WEIGHT_RECENCY * recency
+        )
+            + C.WEIGHT_USER_SENTIMENT * review_strength
+            + C.WEIGHT_NEWS * news
+            + C.WEIGHT_PRICE_ATTRACTIVENESS * price_attr
+            + C.WEIGHT_DISCOUNT * discount
+            + C.WEIGHT_TREND * trend_value
+            + C.WEIGHT_ACTIVITY * avg_players
         )
 
-        return max(0.0, min(1.0, score))
+        final_score = (raw_score - volatility)
+        final_score = clamp(final_score, 0.0, 1.0)
 
-    def _compute_snapshot_deltas(
-        self, snapshots: list[GameSnapshotSchema]
-    ) -> tuple[Optional[dict], list[dict]]:
+        return float(final_score)
+
+    def _compute_avg_players(self, snapshots: list[GameSnapshotSchema]):
+        avg_players = 0.0
+        if snapshots:
+            vals = [s.current_players for s in snapshots if s.current_players is not None]
+            if vals:
+                avg_players = sum(vals) / len(vals)
+                # логарифмическое сглаживание: 0..1 при 0..~50к игроков
+                avg_players = clamp(log1p(avg_players) / log1p(50000), 0.0, 1.0)
+
+        return avg_players
+
+    def _get_recent_snapshots(
+        self, snapshots: Iterable[GameSnapshotSchema], n: int
+    ) -> list[GameSnapshotSchema]:
+        snaps = sorted((s for s in snapshots if s is not None), key=lambda s: s.snapshot_time)
+        if not snaps:
+            return []
+        return snaps[-n:]
+
+    def _compute_trend(self, snaps: list[GameSnapshotSchema]) -> dict[str, float]:
         """
-        Возвращает:
-          delta — изменения между последними двумя снапшотами
-          delta_history — история относительных изменений
+        Compute growth, avg_growth, momentum from list of recent snapshots.
+        Returns dict with:
+          - growth: relative growth between first and last: (last - first) / max(first,1)
+          - avg_growth: average of per-step relative changes
+          - momentum: smoothed value in [ -1.0 .. +1.0 ] (positive = upward momentum)
         """
-        if not snapshots or len(snapshots) < 2:
-            return None, []
+        if not snaps or len(snaps) < 2:
+            return {"growth": 0.0, "avg_growth": 0.0, "momentum": 0.0}
 
-        # сортируем по времени
-        snapshots = sorted(snapshots, key=lambda s: s.snapshot_time)
+        # extract current_players and review_ratio series (use 0 defaults)
+        players = [s.current_players or 0 for s in snaps]
+        reviews = [s.review_ratio or 0.0 for s in snaps]
 
-        delta_history = []
-        for prev, cur in zip(snapshots[:-1], snapshots[1:]):
-            d_players = (cur.current_players or 0) - (prev.current_players or 0)
-            rel_players = (
-                (d_players / prev.current_players) if prev.current_players else 0.0
-            )
-            d_review = (cur.review_ratio or 0) - (prev.review_ratio or 0)
-            delta_history.append(
-                {
-                    "players_change": d_players,
-                    "players_change_rel": rel_players,
-                    "review_ratio_change": d_review,
-                }
-            )
+        # use players primarily; if players all zeros, fallback to review_ratio growth
+        use_players = any(p > 0 for p in players)
 
-        # Последний элемент — актуальный delta
-        delta = delta_history[-1] if delta_history else None
-        return delta, delta_history
+        if use_players:
+            series = players
+        else:
+            series = [int(r * 1000) for r in reviews]  # scale reviews to comparable ints
 
-    # -----------------------------------------------------------------------------------------------------------------
-    def _trend_component(self, delta: Optional[dict]) -> float:
-        if not delta:
+        # growth: relative from first to last
+        first = series[0]
+        last = series[-1]
+        growth = safe_div((last - first), max(first, 1), 0.0)
+
+        # per-step relative changes
+        rel_changes = []
+        for i in range(1, len(series)):
+            prev = series[i - 1]
+            cur = series[i]
+            rel = safe_div((cur - prev), max(prev, 1), 0.0)
+            rel_changes.append(rel)
+
+        avg_growth = safe_div(sum(rel_changes), len(rel_changes), 0.0) if rel_changes else 0.0
+
+        # momentum: combine growth and avg_growth, apply gentle nonlinear scaling
+        # we map combined to -1..1 via tanh-like scaling using log1p for smoothing
+        combined = growth * 0.6 + avg_growth * 0.4  # weighted mixture
+        # clamp combined to reasonable range first
+        combined_clamped = max(-2.0, min(2.0, combined))  # avoid overflow
+        # use a simple smooth transform to -1..1:
+        # momentum = combined_clamped / (1 + abs(combined_clamped))  -> maps to (-1,1)
+        momentum = safe_div(combined_clamped, (1.0 + abs(combined_clamped)), 0.0)
+
+        # finally normalize to 0..1 if you prefer positive-only contribution later
+        # keep momentum as is (-1..1) for diagnostics; evaluate() uses positive part only
+        return {"growth": float(growth), "avg_growth": float(avg_growth), "momentum": float(momentum)}
+
+    def _compute_volatility(self, snaps: list[GameSnapshotSchema]) -> float:
+        """
+        Compute volatility penalty based on players variations across snapshots.
+        Returns penalty in [0.0, max_penalty], where default max_penalty ~ 0.1 (configurable).
+        """
+        if not snaps or len(snaps) < 3:
             return 0.0
-        score = 0.0
 
-        rel = delta.get("players_change_rel")
-        if rel and rel > 0:
-            score += min(rel, 0.2)
+        vals = [s.current_players for s in snaps if s.current_players is not None]
+        if len(vals) < 3:
+            # fallback to review_ratio volatility
+            vals = [int((s.review_ratio or 0.0) * 1000) for s in snaps if s.review_ratio is not None]
+            if len(vals) < 3:
+                return 0.0
 
-        rr = delta.get("review_ratio_change")
-        if rr and rr > 0:
-            score += min(rr * 2, 0.2)
+        # compute mean and std-like avg absolute diff
+        diffs = [abs(vals[i] - vals[i - 1]) for i in range(1, len(vals))]
+        mean_diff = sum(diffs) / len(diffs)
+        mean_val = sum(vals) / len(vals) if vals else 0.0
 
-        return min(score, 1.0)
+        rel_vol = safe_div(mean_diff, max(mean_val, 1.0), 0.0)  # relative volatility
 
-    def _volatility_penalty(self, delta_history: Optional[list[dict]]) -> float:
-        if not delta_history or len(delta_history) < 2:
-            return 0.0
-        diffs = [abs(d.get("players_change", 0)) for d in delta_history]
-        avg = sum(diffs) / len(diffs)
-        if avg > C.PLAYER_CHANGE_VOLATILITY_THRESHOLD:
-            return (avg / (avg + C.PLAYER_CHANGE_VOLATILITY_THRESHOLD)) * 0.1
-        return 0.0
-
-    def _compute_steam_review_ratio(self, review_summary: ReviewResponse) -> float:
-        if not review_summary or not review_summary.reviews:
-            return 0.0
-        total = len(review_summary.reviews)
-        up = sum(1 for r in review_summary.reviews if r.voted_up)
-        return up / total
+        # map to penalty. scale factor to keep penalty small.
+        # choose max_penalty from constants or default 0.12
+        penalty = clamp(rel_vol * C.VOLATILITY_SENSITIVITY, 0.0, C.VOLATILITY_MAX_PENALTY)
+        return float(penalty)
 
     def _rating_component(self, metrics: Optional[PopularityMetrics]) -> float:
         if not metrics or metrics.rating is None:
@@ -153,7 +225,8 @@ class GameRanker:
         dt = meta.release_date if (meta and meta.release_date) else game.release_date
         if not dt:
             return C.UNKNOWN_RECENCY_BASE  # unknown recency, small bias
-        days = (datetime.now(UTC) - dt).days
+        dt = dt.replace(tzinfo=None)
+        days = (datetime.now() - dt).days
         if days <= 0:
             return 1.0
         return max(0.0, 1.0 - min(1.0, days / C.RECENCY_YEAR_DENOMINATOR))

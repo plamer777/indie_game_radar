@@ -100,7 +100,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
         data = data if isinstance(data, list) else [data]
 
         if data and isinstance(data[0], BaseModel):
-            data = [record.model_dump(mode='json') for record in data]
+            data = [record.model_dump() for record in data]
 
         for record in data:
             record = deepcopy(record)
@@ -245,7 +245,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
 
         found = self._collection.find(params).limit(limit or 0).skip(skip or 0)
         if sort_by:
-            found = found.sort(list(sort_by.items()))
+            found = found.sort(list(sort_by.items())).allow_disk_use(True)
         if self._model:
             async for item in found:
                 yield self._model.model_validate(item)
@@ -339,7 +339,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
                 except Exception as e:
                     pass
             if not delete_permanently:
-                current_date = datetime.now(UTC)
+                current_date = datetime.now()
                 await update_method(
                     {'_id': uid} if not many and type(uid) in (str, ObjectId) else uid,
                     {'$set': {'deleted_at': current_date, 'updated_at': current_date}})
@@ -437,8 +437,8 @@ class BaseRepository(AbstractRepository, Generic[M]):
         return found
 
     async def get_max_value(
-            self, field_name: str = 'lastModifiedDateTime',
-            params: dict | None = None
+        self, field_name: str = 'updated_at',
+        params: dict | None = None
     ) -> dict[str, str]:
         """This method is used to get the max field value from the
         database by the provided field name
@@ -456,7 +456,8 @@ class BaseRepository(AbstractRepository, Generic[M]):
                 {'$group': {
                     '_id': 'max_value', 'max_value': {'$max': f'${field_name}'}
                 }}
-            ]
+            ],
+            {'allowDiskUse': True}
         )
 
         try:

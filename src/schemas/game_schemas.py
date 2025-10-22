@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import Field, HttpUrl, field_validator, AliasPath
+from pydantic import Field, field_validator, AliasPath
 from typing import Optional, List, Literal
 from datetime import datetime
 from src.config import constants as C
@@ -23,14 +23,15 @@ class GameSchema(BaseSchema):
     short_description: Optional[str] = None
     detailed_description: Optional[str] = None
     release_date: Optional[datetime] = None
+    is_coming_soon: Optional[bool] = True
     genres: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     developers: List[str] = Field(default_factory=list)
     publishers: List[str] = Field(default_factory=list)
-    website: Optional[HttpUrl] = None
-    header_image: Optional[HttpUrl] = None
-    background: Optional[HttpUrl] = None
-    screenshots: List[HttpUrl] = Field(default_factory=list)
+    website: Optional[str] = None
+    header_image: Optional[str] = None
+    background: Optional[str] = None
+    screenshots: List[str] = Field(default_factory=list)
     price: Optional[PriceInfo] = None
     is_free: bool = False
     ext_info: Optional[SteamExtendedInfo] = None

@@ -1,5 +1,5 @@
 from src.clients.telegram_client import TelegramPublisher
-from src.db.repositories import PublicationRepository, GameRepository, IGDBRepository
+from src.db.repositories import GamePublicationRepository, GameRepository, IGDBRepository
 from src.models.publication import PublishStatus
 from src.services.base_service import BaseService
 from src.utils.logging import get_logger
@@ -9,7 +9,7 @@ from src.utils.logging import get_logger
 class PublisherService(BaseService):
 
     def __init__(
-        self, publication_repo: PublicationRepository, publisher: TelegramPublisher,
+        self, publication_repo: GamePublicationRepository, publisher: TelegramPublisher,
         game_repo: GameRepository, igdb_repo: IGDBRepository
     ):
         self._publication_repo = publication_repo

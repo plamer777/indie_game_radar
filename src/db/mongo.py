@@ -1,7 +1,7 @@
 from __future__ import annotations
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from src.config import constants as C
-from src.config import settings
+from src.config.settings import settings
 # ---------------------------------------------------------------------------------------------------------------------
 
 

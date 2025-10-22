@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from src.config import constants as C
@@ -25,7 +25,7 @@ class NewsStats(BaseModel):
 class SteamNewsItem(BaseModel):
     gid: str = Field(..., description="Уникальный идентификатор новости в Steam")
     title: str = Field(..., description="Заголовок новости")
-    url: Optional[HttpUrl] = Field(None, description="URL новости (часто ведет на внешний ресурс)")
+    url: Optional[str] = Field(None, description="URL новости (часто ведет на внешний ресурс)")
     is_external_url: bool = Field(False, description="Флаг, указывает внешний ли источник")
     author: Optional[str] = Field(None, description="Автор публикации")
     contents: Optional[str] = Field(None, description="HTML содержимое новости")
@@ -34,6 +34,9 @@ class SteamNewsItem(BaseModel):
     feed_type: Optional[int] = Field(None, description="Тип фида (0 = обычный, 1 = RSS и т.д.)")
     appid: int = Field(..., description="Steam AppID игры, к которой относится новость")
     date: datetime = Field(..., description="Дата публикации в формате datetime")
+    score: Optional[float] = Field(None, description="Оценка новости")
+    last_ranked_at: Optional[datetime] = Field(None, description="Дата последнего ранжирования")
+    relevance: Optional[float] = Field(None, description="Релевантность новости")
 
 
 class PriceInfo(BaseModel):
@@ -71,14 +74,15 @@ class GameModel(BaseDBModel):
     short_description: Optional[str] = None
     detailed_description: Optional[str] = None
     release_date: Optional[datetime] = None
+    is_coming_soon: Optional[bool] = True
     genres: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     developers: List[str] = Field(default_factory=list)
     publishers: List[str] = Field(default_factory=list)
-    website: Optional[HttpUrl] = None
-    header_image: Optional[HttpUrl] = None
-    background: Optional[HttpUrl] = None
-    screenshots: List[HttpUrl] = Field(default_factory=list)
+    website: Optional[str] = None
+    header_image: Optional[str] = None
+    background: Optional[str] = None
+    screenshots: List[str] = Field(default_factory=list)
     price: Optional[PriceInfo] = None
     is_free: bool = False
     ext_info: Optional[SteamExtendedInfo] = None
@@ -148,4 +152,4 @@ class SteamExtendedInfo(BaseModel):
     current_players: Optional[int]
     achievements: Optional[list[AchievementPct]]
     review_summary: Optional[ReviewResponse]
-    news_stats: Optional[NewsStats]
+    news_stats: Optional[NewsStats] = None

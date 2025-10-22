@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from src.config import constants as C
@@ -27,9 +27,9 @@ class IGDBMeta(BaseDBModel):
     genres: List[str] = Field(default_factory=list)
     platforms: List[str] = Field(default_factory=list)
     release_date: Optional[datetime] = None
-    cover_url: Optional[HttpUrl] = None
-    screenshots: List[HttpUrl] = Field(default_factory=list)
-    websites: List[HttpUrl] = Field(default_factory=list)
+    cover_url: Optional[str] = None
+    screenshots: List[str] = Field(default_factory=list)
+    websites: List[str] = Field(default_factory=list)
     metrics: PopularityMetrics = Field(default_factory=PopularityMetrics)
     themes: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
