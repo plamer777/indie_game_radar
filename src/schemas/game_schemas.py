@@ -41,8 +41,6 @@ class GameSchema(BaseSchema):
     last_news: List[SteamNewsItem] = Field(default_factory=list)
 
     recommendations: Optional[int] = Field(None, validation_alias=AliasPath('recommendations', 'total'))
-    last_score: Optional[float] = None
-    last_ranked_at: Optional[datetime] = None
 
     igdb_id: Optional[int] = None
 
@@ -65,6 +63,11 @@ class GameSchema(BaseSchema):
                 pass
 
         return value
+
+
+class RankedGameSchema(GameSchema):
+    last_score: Optional[float] = None
+    last_ranked_at: Optional[datetime] = None
 
 
 class GameSnapshotSchema(BaseSchema):

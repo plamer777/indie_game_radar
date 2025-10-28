@@ -7,7 +7,7 @@ from src.schemas.base import BaseSchema
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class GameGamePublicationRecordSchema(BaseSchema):
+class GamePublicationRecordSchema(BaseSchema):
     steam_appid: int
     channel: str = C.DEFAULT_TELEGRAM_CHANNEL
     status: PublishStatus = PublishStatus.pending
@@ -31,6 +31,20 @@ class NewsPublicationSchema(BaseSchema):
     score: Optional[float]
     last_ranked_at: Optional[datetime] = None
     relevance: Optional[float] = None
+    message_id: Optional[str] = None
+    attempt: int = 0
+    error: Optional[str] = None
+
+
+class DiscountPublicationSchema(BaseSchema):
+    game_id: str
+    old_price: float
+    new_price: float
+    channel: str = C.DEFAULT_TELEGRAM_CHANNEL
+    status: PublishStatus = PublishStatus.pending
+    percent_drop: float
+    absolute_drop: float
+    detected_at: datetime
     message_id: Optional[str] = None
     attempt: int = 0
     error: Optional[str] = None

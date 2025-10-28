@@ -1,30 +1,53 @@
 from __future__ import annotations
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 from src.config.constants import GAMES_COLLECTION, IGDB_META_COLLECTION, GAME_PUBLICATIONS_COLLECTION, APPS_COLLECTION, \
-    GAME_SNAPSHOTS_COLLECTION, NEWS_PUBLICATIONS_COLLECTION
+    GAME_SNAPSHOTS_COLLECTION, NEWS_PUBLICATIONS_COLLECTION, DISCOUNT_PUBLICATIONS_COLLECTION, RANKED_GAMES_COLLECTION, \
+    REDDIT_POSTS_COLLECTION, RANKED_REDDIT_POSTS_COLLECTION
 from src.db.repositories.base_repo import BaseRepository
-from src.models.game import GameModel, AppModel, GameSnapshot
-from src.models import IGDBMeta
-from src.models.publication import GamePublicationRecord, PublishStatus, NewsPublicationRecord
+from src.models.game import GameModel, AppModel, GameSnapshot, RankedGameModel
+from src.models import IGDBMeta, RedditPost, RankedRedditPost
+from src.models.publication import GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication
+from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class GameRepository(BaseRepository[GameModel]):
     def __init__(
         self, collection_name: str = GAMES_COLLECTION,
-        model: type[BaseModel] | None = GameModel,
+        model: type[GameModel] | None = GameModel,
         db: AsyncIOMotorDatabase | None = None
     ):
         super().__init__(collection_name, model, db)
 
-    async def update_score(self, appid: int, score: float) -> None:
-        await self._collection.update_one(
-            {"steam_appid": appid},
-            {"$set": {"last_score": score, "last_ranked_at": datetime.now(), "updated_at": datetime.now()}}
-        )
+
+class RankedGameRepository(BaseRepository[RankedGameModel]):
+    def __init__(
+        self, collection_name: str = RANKED_GAMES_COLLECTION,
+        model: type[RankedGameModel] | None = RankedGameModel,
+        db: AsyncIOMotorDatabase | None = None
+    ):
+        super().__init__(collection_name, model, db)
+
+
+class RedditPostRepository(BaseRepository[RedditPost]):
+    def __init__(
+        self, collection_name: str = REDDIT_POSTS_COLLECTION,
+        model: type[RedditPost] | None = RedditPost,
+        db: AsyncIOMotorDatabase | None = None
+    ):
+        super().__init__(collection_name, model, db)
+
+
+class RankedRedditPostRepository(BaseRepository[RankedRedditPost]):
+    def __init__(
+        self, collection_name: str = RANKED_REDDIT_POSTS_COLLECTION,
+        model: type[RankedRedditPost] | None = RankedRedditPost,
+        db: AsyncIOMotorDatabase | None = None
+    ):
+        super().__init__(collection_name, model, db)
 
 
 class IGDBRepository(BaseRepository[IGDBMeta]):
@@ -117,5 +140,39 @@ class NewsPublicationRepository(BaseRepository[NewsPublicationRecord]):
     async def was_published(self, gid: str, channel: str = "telegram") -> bool:
         doc = await self._collection.find_one(
             {"gid": gid, "channel": channel, "status": PublishStatus.published}
+        )
+        return doc is not None
+
+
+class DiscountPublicationRepository(BaseRepository[DiscountPublication]):
+
+    def __init__(
+        self, collection_name: str = DISCOUNT_PUBLICATIONS_COLLECTION,
+        model: type[DiscountPublication] = DiscountPublication,
+        db: AsyncIOMotorDatabase | None = None
+    ) -> None:
+        super().__init__(collection_name, model, db)
+
+    async def mark_published(self, record: DiscountPublication) -> None:
+        data = record.model_dump()
+        data["status"] = PublishStatus.published
+        data["updated_at"] = datetime.now()
+        await self.add_or_update(data, search_field="steam_appid")
+
+    async def mark_failed(self, record: DiscountPublication, error: str) -> None:
+        data = record.model_dump()
+        data["status"] = PublishStatus.failed
+        data["error"] = error
+        data["attempt"] = data.get("attempt", 0) + 1
+        data["updated_at"] = datetime.now()
+        await self.add_or_update(data, search_field="steam_appid")
+
+    async def was_published(self, steam_appid: int, channel: str = "telegram") -> bool:
+        now = datetime.now()
+        doc = await self._collection.find_one(
+            {
+                "steam_appid": steam_appid, "channel": channel, "status": PublishStatus.published,
+                "updated_at": {"$gte": now - timedelta(days=C.DISCOUNT_PUBLICATION_DAYS_LIMIT)}
+            }
         )
         return doc is not None

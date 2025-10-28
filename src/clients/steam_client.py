@@ -2,17 +2,19 @@ from __future__ import annotations
 import httpx
 import asyncio
 from typing import Any, Optional, AsyncGenerator
-import numpy as np
+from src.config.constants import TOO_MANY_REQUESTS_DELAY
+from src.exceptions.api_exceptions import TooManyRequestsException
 from src.schemas import GameSchema
 from src.schemas.game_schemas import AppSchema
+from src.utils.common import repeat_execution_async
 from src.utils.retry import RetryPolicy
 from src.clients.shared_dependencies.rate_limiter import SemaphoreLimiter
 from src.managers.cache import RedisCache
 from src.utils.logging import get_logger
 from src.config.settings import settings
 from src.models.game import CurrentPlayersResponse, \
-    AchievementPct, ReviewResponse, ReviewAuthor, ReviewItem, SteamExtendedInfo, PriceInfo, NewsStats, SteamNewsItem
-from datetime import datetime, UTC
+    AchievementPct, ReviewResponse, ReviewAuthor, ReviewItem, SteamExtendedInfo, PriceInfo, SteamNewsItem
+from datetime import datetime
 from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -41,6 +43,7 @@ class AsyncSteamClient:
     async def close(self) -> None:
         await self._client.aclose()
 
+    # @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def fetch_apps(
         self, batch_size: int | None = None, since: int | datetime | None = None
     ) -> AsyncGenerator[list[AppSchema], None]:
@@ -52,6 +55,8 @@ class AsyncSteamClient:
         async with self._limiter:
             async def _do():
                 res = await self._client.get(url, params=params)
+                if res.status_code == httpx.codes.TOO_MANY_REQUESTS:
+                    raise TooManyRequestsException("Too many requests")
                 res.raise_for_status()
                 data = res.json()
                 result = data.get("response", {})
@@ -66,6 +71,7 @@ class AsyncSteamClient:
                 if not have_more:
                     break
 
+    @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def fetch_app_news(
         self, app_id: int, count: int = C.NEWS_COUNT, max_length: int | None = None
     ) -> list[SteamNewsItem] | None:
@@ -79,6 +85,8 @@ class AsyncSteamClient:
                     res = await self._client.get(url, params=params)
                     if res.status_code in [403, 404]:
                         return None
+                    elif res.status_code == httpx.codes.TOO_MANY_REQUESTS:
+                        raise TooManyRequestsException("Too many requests")
                     res.raise_for_status()
                     data = res.json()
                     raw_news = data.get('appnews', {}).get("newsitems", [])
@@ -111,6 +119,7 @@ class AsyncSteamClient:
         )
         return game
 
+    @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def fetch_app_details(self, appid: int) -> Optional[GameSchema]:
         try:
             url = f"{self._base_store_api_url}/api/appdetails"
@@ -120,6 +129,8 @@ class AsyncSteamClient:
                     res = await self._client.get(url, params=params)
                     if res.status_code in [403, 404]:
                         return None
+                    elif res.status_code == httpx.codes.TOO_MANY_REQUESTS:
+                        raise TooManyRequestsException("Too many requests")
                     res.raise_for_status()
                     payload = res.json()
                     raw = payload.get(str(appid))
@@ -188,6 +199,7 @@ class AsyncSteamClient:
             self._log.warning("normalize_failed", appid=appid, error=str(e))
             return None
 
+    @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def fetch_current_players(self, appid: int) -> Optional[CurrentPlayersResponse]:
         try:
             url = f"{self._base_web_api_url}/ISteamUserStats/GetNumberOfCurrentPlayers/v1"
@@ -197,6 +209,8 @@ class AsyncSteamClient:
                     resp = await self._client.get(url, params=params)
                     if resp.status_code in [403, 404]:
                         return None
+                    elif resp.status_code == httpx.codes.TOO_MANY_REQUESTS:
+                        raise TooManyRequestsException("Too many requests")
                     resp.raise_for_status()
                     j = resp.json().get("response", {})
                     if "player_count" in j:
@@ -208,6 +222,7 @@ class AsyncSteamClient:
             self._log.error("fetch_current_players_failed", appid=appid, error=str(e))
             return None
 
+    @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def fetch_achievements(self, appid: int) -> Optional[list[AchievementPct]]:
         try:
             url = f"{self._base_web_api_url}/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
@@ -217,6 +232,8 @@ class AsyncSteamClient:
                     resp = await self._client.get(url, params=params)
                     if resp.status_code in [403, 404]:
                         return None
+                    elif resp.status_code == httpx.codes.TOO_MANY_REQUESTS:
+                        raise TooManyRequestsException("Too many requests")
                     resp.raise_for_status()
                     j = resp.json().get("achievementpercentages", {})
                     ach_list = j.get("achievements", [])
@@ -230,6 +247,7 @@ class AsyncSteamClient:
             self._log.error("fetch_achievements_failed", appid=appid, error=str(e))
             return None
 
+    @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def fetch_reviews(
         self, appid: int, cursor: Optional[str] = None, num_per_page: int = 20
     ) -> Optional[ReviewResponse]:
@@ -250,6 +268,8 @@ class AsyncSteamClient:
                     resp = await self._client.get(url, params=params)
                     if resp.status_code in [403, 404]:
                         return None
+                    elif resp.status_code == httpx.codes.TOO_MANY_REQUESTS:
+                        raise TooManyRequestsException("Too many requests")
                     resp.raise_for_status()
                     j = resp.json()
                     reviews = []

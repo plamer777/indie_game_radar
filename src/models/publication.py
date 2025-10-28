@@ -1,10 +1,10 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 from enum import StrEnum
 from src.config import constants as C
 from src.models.base import BaseDBModel
+# ---------------------------------------------------------------------------------------------------------------------
 
 
 class PublishStatus(StrEnum):
@@ -37,6 +37,20 @@ class NewsPublicationRecord(BaseDBModel):
     score: Optional[float]
     last_ranked_at: Optional[datetime] = None
     relevance: Optional[float] = None
+    message_id: Optional[str] = None
+    attempt: int = 0
+    error: Optional[str] = None
+
+
+class DiscountPublication(BaseDBModel):
+    game_id: str
+    old_price: float
+    new_price: float
+    channel: str = C.DEFAULT_TELEGRAM_CHANNEL
+    status: PublishStatus = PublishStatus.pending
+    percent_drop: float
+    absolute_drop: float
+    detected_at: datetime
     message_id: Optional[str] = None
     attempt: int = 0
     error: Optional[str] = None

@@ -2,7 +2,10 @@ from __future__ import annotations
 import httpx
 import asyncio
 from typing import Any, Optional
+from src.config.constants import TOO_MANY_REQUESTS_DELAY
+from src.exceptions.api_exceptions import TooManyRequestsException
 from src.schemas.igdb_schemas import IGDBMetaSchema
+from src.utils.common import repeat_execution_async
 from src.utils.retry import RetryPolicy
 from src.clients.shared_dependencies.rate_limiter import SemaphoreLimiter
 from src.managers.cache import RedisCache
@@ -68,6 +71,7 @@ class AsyncIGDBClient:
             "Content-Type": "text/plain"
         }
 
+    @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def _igdb_post(self, endpoint: str, query: str) -> list[dict[str, Any]]:
         url = f"{settings.IGDB_BASE_URL}/{endpoint}"
         headers = await self._get_headers()
@@ -81,6 +85,11 @@ class AsyncIGDBClient:
                     _ = await self._ensure_token()
                     headers["Authorization"] = f"Bearer {self._access_token}"
                     res = await self._client.post(url, content=query, headers=headers)
+                elif res.status_code == httpx.codes.TOO_MANY_REQUESTS:
+                    raise TooManyRequestsException("Too many requests")
+                elif res.status_code in [httpx.codes.BAD_REQUEST, httpx.codes.NOT_FOUND]:
+                    return None
+
                 res.raise_for_status()
                 return res.json()
             return await self._retry.run(_do)

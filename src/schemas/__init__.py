@@ -1,11 +1,14 @@
-from .game_schemas import GameSnapshotSchema, GameSchema
-from .publication_schemas import GameGamePublicationRecordSchema, NewsPublicationSchema
+from .game_schemas import GameSnapshotSchema, GameSchema, RankedGameSchema
+from .publication_schemas import GamePublicationRecordSchema, NewsPublicationSchema
+from .reddit_schemas import RedditPostSchema
 # ---------------------------------------------------------------------------------------------------------------------
 
 __all__ = [
     "GameSnapshotSchema",
     "GameSchema",
-    "GameGamePublicationRecordSchema",
-    "NewsPublicationSchema"
+    "GamePublicationRecordSchema",
+    "NewsPublicationSchema",
+    "RankedGameSchema",
+    "RedditPostSchema"
 
 ]

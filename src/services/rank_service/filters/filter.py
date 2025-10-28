@@ -13,8 +13,8 @@ class GameFilter:
     both Steam (`GameModel`) and IGDB (`IGDBMeta`) data.
     """
 
-    def __init__(self, threshold: float | None = None) -> None:
-        self._threshold = threshold if threshold is not None else settings.SCORE_PUBLISH_THRESHOLD
+    def __init__(self, threshold: float | None = settings.SCORE_PUBLISH_THRESHOLD) -> None:
+        self._threshold = threshold
 
     def should_publish(self, game: GameModel, meta: IGDBMeta | None, score: float) -> bool:
         # 1) Score threshold

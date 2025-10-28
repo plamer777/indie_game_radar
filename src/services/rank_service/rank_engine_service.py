@@ -1,12 +1,16 @@
 from datetime import datetime, timedelta
+from logging import Logger
 from src.config import constants as C
 from src.db.repositories import GameRepository, GameSnapshotRepository, GamePublicationRepository, IGDBRepository
-from src.db.repositories.repositories import NewsPublicationRepository
-from src.schemas import GameGamePublicationRecordSchema, NewsPublicationSchema
+from src.db.repositories.repositories import NewsPublicationRepository, DiscountPublicationRepository, \
+    RankedGameRepository, RedditPostRepository, RankedRedditPostRepository
+from src.models import RankedGameModel, GameModel
+from src.schemas import GamePublicationRecordSchema, NewsPublicationSchema, RankedGameSchema
+from src.schemas.reddit_schemas import RankedRedditPostSchema
 from src.services.base_service import BaseService
-from src.services.rank_service.filters.filter import GameFilter
-from src.services.rank_service.filters.news_filter import NewsFilter
-from src.services.rank_service.rankers import NewsRanker
+from src.services.shared_dependencies.calculators import NewsStatCalculator
+from src.services.rank_service.filters import GameFilter, NewsFilter, DiscountFilter
+from src.services.rank_service.rankers import NewsRanker, RedditPostRanker
 from src.services.rank_service.rankers.ranker import GameRanker
 from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
@@ -23,6 +27,12 @@ class RankEngineService(BaseService):
         news_ranker: NewsRanker,
         news_filter: NewsFilter,
         news_publication_repo: NewsPublicationRepository,
+        discount_filter: DiscountFilter,
+        discount_publication_repo: DiscountPublicationRepository,
+        ranked_games_repo: RankedGameRepository,
+        reddit_post_ranker: RedditPostRanker,
+        reddit_post_repo: RedditPostRepository,
+        ranked_reddit_posts_repo: RankedRedditPostRepository
     ):
         super().__init__()
         self._log = get_logger().bind(service="rank_engine")
@@ -35,24 +45,30 @@ class RankEngineService(BaseService):
         self._news_ranker = news_ranker
         self._news_filter = news_filter
         self._news_publication_repo = news_publication_repo
+        self._discount_filter = discount_filter
+        self._discount_publication_repo = discount_publication_repo
+        self._ranked_games_repo = ranked_games_repo
+        self._news_stat_calculator = NewsStatCalculator()
+        self._reddit_post_ranker = reddit_post_ranker
+        self._reddit_post_repo = reddit_post_repo
+        self._ranked_reddit_posts_repo = ranked_reddit_posts_repo
 
     async def rank_all(self):
         cycle_log = self._log.bind(method="rank_all")
         cycle_log.info("ranking games and news")
         await self.rank_games()
-        await self.rank_news()
 
     async def rank_games(self) -> None:
         """The main method for ranking games.
         """
         cycle_log = self._log.bind(method="rank_games")
         cycle_log.info("cycle_start")
-        last_ranked_at = await self._games.get_max_value("last_ranked_at")
+        last_ranked_at = await self._ranked_games_repo.get_max_value("last_ranked_at")
         last_ranked_at = last_ranked_at.get('max_value') or datetime.min
         # d) Скоринг
         games = await self._games.get_all(
-            {'$or': [{'updated_at': {'$gte': last_ranked_at}}, {'last_score': None}]},
-            sort_by={'updated_at': -1}, generator_mode=True
+            {'updated_at': {'$gte': last_ranked_at}},
+            sort_by={'updated_at': -1}, generator_mode=True, show_deleted=True
         )
         now = datetime.now()
         period_days = 45  # параметр можно вынести в настройки
@@ -68,8 +84,16 @@ class RankEngineService(BaseService):
                     },
                     sort_by={'snapshot_time': -1}
                 )
+                game.ext_info.news_stats = self._news_stat_calculator.compute_news_stats(game.last_news)
                 score = await self._ranker.evaluate(game, meta, snaps)
-                await self._games.update_score(game.steam_appid, score)
+                ranked_game = RankedGameSchema(
+                    **game.model_dump(exclude={'created_at', 'updated_at'}),
+                    last_score=score,
+                    last_ranked_at=datetime.now()
+                )
+                self._rank_game_news(ranked_game, cycle_log)
+                await self._rank_reddit_posts(ranked_game, cycle_log)
+                await self._ranked_games_repo.add_or_update(ranked_game, search_field="steam_appid")
 
             except Exception as e:
                 cycle_log.error("rank_games", exc_info=True, error=e)
@@ -77,7 +101,7 @@ class RankEngineService(BaseService):
     async def filter_games(self, top_n: int) -> int:
         cycle_log = self._log.bind(method="filter_games")
         cycle_log.info("started")
-        scored_games = await self._games.get_all(
+        scored_games = await self._ranked_games_repo.get_all(
             {'last_score': {'$ne': None}}, sort_by={'last_score': -1}, generator_mode=True
         )
         unpublished = []
@@ -87,63 +111,108 @@ class RankEngineService(BaseService):
                 if self._filter.should_publish(game, meta, game.last_score):
                     was = await self._publish_repo.was_published(game.steam_appid)
                     if not was:
-                        rec = GameGamePublicationRecordSchema(
+                        rec = GamePublicationRecordSchema(
                             steam_appid=game.steam_appid, score_at_publish=game.last_score
                         )
                         unpublished.append(rec)
                     if len(unpublished) >= top_n:
-                        await self._publish_repo.add_or_update(unpublished, search_field="steam_appid")
                         break
             except Exception as e:
                 cycle_log.error("filter_games", exc_info=True, error=e)
 
-        else:
-            await self._publish_repo.add_or_update(unpublished, search_field="steam_appid")
+        await self._publish_repo.add_or_update(unpublished, search_field="steam_appid")
 
         return len(unpublished)
 
-    async def rank_news(self) -> None:
-        cycle_log = self._log.bind(method="rank_news")
-        cycle_log.info("cycle_start")
-        last_ranked_at = await self._games.get_max_value("last_news.last_ranked_at")
-        last_ranked_at = last_ranked_at.get('max_value') or datetime.min
-        games = await self._games.get_all(
-            {'$or': [{'updated_at': {'$gte': last_ranked_at}}, {'last_news.last_ranked_at': None}]},
-            sort_by={'last_score': -1}, generator_mode=True
-        )
-        updated = []
-        async for game in games:
-            try:
-                now = datetime.now()
-                for news in game.last_news:
-                    news_score = self._news_ranker.evaluate(game, news)
-                    news.score = news_score
-                    news.last_ranked_at = now
-                game.updated_at = now
-                updated.append(game)
-                if len(updated) >= C.ORCH_NEWS_RANKING_BATCH_SIZE:
-                    await self._games.add_or_update(updated, search_field="steam_appid")
-                    updated.clear()
-            except Exception as e:
-                cycle_log.error(f"Error ranking news for game {game.steam_appid}: {e}")
+    def _rank_game_news(self, game: RankedGameModel | RankedGameSchema | GameModel, cycle_log: Logger):
+        """The method ranks news for a game.
+        :param game: The game to rank news for.
+        :param cycle_log: The logger to use.
+        """
+        try:
+            now = datetime.now()
+            for news in game.last_news:
+                news_score = self._news_ranker.evaluate(game, news)
+                news.score = news_score
+                news.last_ranked_at = now
 
-        await self._games.add_or_update(updated, search_field="steam_appid")
+        except Exception as e:
+            cycle_log.error(f"Error ranking news for game {game.steam_appid}: {e}")
+
+    async def _rank_reddit_posts(self, game: RankedGameModel | RankedGameSchema | GameModel, cycle_log: Logger) -> None:
+        try:
+            reddit_game_related_posts = await self._reddit_post_repo.get_all(
+                {'steam_appid': game.steam_appid}, sort_by={'updated_at': -1}, generator_mode=True
+            )
+            ranked_posts = []
+            async for reddit_post in reddit_game_related_posts:
+                try:
+                    reddit_post_score = self._reddit_post_ranker.evaluate(game, reddit_post)
+                    ranked_post = RankedRedditPostSchema(
+                        **reddit_post.model_dump(), last_score=reddit_post_score
+                    )
+                    ranked_posts.append(ranked_post)
+
+                except Exception as e:
+                    cycle_log.error(f"Error ranking reddit post {reddit_post.reddit_id}: {e}")
+
+            await self._ranked_reddit_posts_repo.add_or_update(ranked_posts, search_field="reddit_id")
+
+        except Exception as e:
+            cycle_log.error(f"Error ranking reddit posts for game {game.steam_appid}: {e}")
 
     async def filter_news(self, top_n: int) -> int:
         cycle_log = self._log.bind(method="filter_news")
         cycle_log.info("started")
-        scored_games = await self._games.get_all(
+        scored_games = await self._ranked_games_repo.get_all(
             {'last_score': {'$ne': None}}, sort_by={'last_score': -1}, generator_mode=True
         )
         unpublished = []
         async for game in scored_games:
             filtered = await self._news_filter.filter_news(game.last_news)
-            unpublished.extend(filtered)
+            for news in filtered:
+                was = await self._news_publication_repo.was_published(news.gid)
+                if not was:
+                    unpublished.append(news)
+
             if len(unpublished) >= top_n:
                 break
 
         for news in unpublished:
             new_publication = NewsPublicationSchema(**news.model_dump())
             await self._news_publication_repo.add_or_update(new_publication, search_field="gid")
+
+        return len(unpublished)
+
+    async def filter_discounts(self, top_n: int) -> int:
+        cycle_log = self._log.bind(method="filter_discounts")
+        cycle_log.info("started")
+        scored_games = await self._ranked_games_repo.get_all(
+            {'last_score': {'$gte': 4}}, sort_by={'last_score': -1}, generator_mode=True
+        )
+        now = datetime.now()
+        unpublished = []
+        async for game in scored_games:
+            try:
+                snapshots = await self._game_snapshot_repo.get_all(
+                    {
+                        "steam_appid": game.steam_appid,
+                        "snapshot_time": {"$gte": now - timedelta(days=C.DISCOUNT_FILTER_DAYS_LIMIT)}
+                    },
+                    sort_by={'snapshot_time': -1}
+                )
+                discount = await self._discount_filter.detect_discount(game, snapshots)
+                if discount:
+                    was = await self._discount_publication_repo.was_published(game.steam_appid)
+                    if not was:
+                        unpublished.append(discount)
+
+                if len(unpublished) >= top_n:
+                    break
+
+            except Exception as e:
+                cycle_log.error("filter_discounts", exc_info=True, error=e)
+
+        await self._discount_publication_repo.add_or_update(unpublished, search_field="steam_appid")
 
         return len(unpublished)

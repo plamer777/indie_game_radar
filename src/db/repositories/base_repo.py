@@ -314,7 +314,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
             logging.error(f'Cannot update record: {e}')
         return False
 
-    async def delete(self, uid: str | dict, many: bool = False, delete_permanently: bool = False) -> None:
+    async def delete(self, uid: str | int | dict, many: bool = False, delete_permanently: bool = False) -> None:
         """This method deletes a record from the database
         :param uid: a str representing the id of the record to delete. You could
         provide it as a string or ObjectID value if you'd like to use default
@@ -457,7 +457,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
                     '_id': 'max_value', 'max_value': {'$max': f'${field_name}'}
                 }}
             ],
-            {'allowDiskUse': True}
+            allowDiskUse=True
         )
 
         try:

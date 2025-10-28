@@ -1,6 +1,7 @@
 from .repositories import (
     GameRepository, IGDBRepository, GamePublicationRepository, AppRepository, GameSnapshotRepository,
-    NewsPublicationRepository
+    NewsPublicationRepository, DiscountPublicationRepository, RankedGameRepository, RedditPostRepository,
+    RankedRedditPostRepository
 )
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -10,5 +11,9 @@ __all__ = [
     "GamePublicationRepository",
     "AppRepository",
     "GameSnapshotRepository",
-    "NewsPublicationRepository"
+    "NewsPublicationRepository",
+    "DiscountPublicationRepository",
+    "RankedGameRepository",
+    "RedditPostRepository",
+    "RankedRedditPostRepository"
 ]

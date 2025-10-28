@@ -92,10 +92,14 @@ class GameModel(BaseDBModel):
 
     package_groups: List[PackageGroup] = Field(default_factory=list)
     last_news: List[SteamNewsItem] = Field(default_factory=list)
-    last_score: Optional[float] = None
-    last_ranked_at: Optional[datetime] = None
 
     igdb_id: Optional[int] = None
+
+
+
+class RankedGameModel(GameModel):
+    last_score: Optional[float] = None
+    last_ranked_at: Optional[datetime] = None
 
 
 class GameSnapshot(BaseDBModel):

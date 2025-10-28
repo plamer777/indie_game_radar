@@ -7,6 +7,16 @@ from src.models.game import SteamNewsItem
 
 
 class NewsFilter:
+    LOW_VALUE_KEYWORDS = [
+        "hotfix", "update", "patch", "version", "dev log", "minor changes",
+        "bugfix", "roadmap", "announcement", "delay", "sale", "stream", "podcast"
+    ]
+
+    IMPORTANT_KEYWORDS = [
+        "release", "launch", "trailer", "new gameplay", "feature",
+        "partnership", "publisher", "collaboration", "major update"
+    ]
+
     def __init__(
         self,
         open_ai_client: OpenAI,
@@ -32,24 +42,23 @@ class NewsFilter:
         )
         return np.array(response.data[0].embedding)
 
+    def _contains_low_value_words(self, text: str) -> bool:
+        t = text.lower()
+        return any(kw in t for kw in self.LOW_VALUE_KEYWORDS)
+
+    def _contains_important_words(self, text: str) -> bool:
+        t = text.lower()
+        return any(kw in t for kw in self.IMPORTANT_KEYWORDS)
+
     async def filter_news(
         self,
         news_items: List[SteamNewsItem],
         query: Optional[str] = None
     ) -> List[SteamNewsItem]:
-        """
-       The method filters news items based on time, source, relevance, and duplicates.
-
-       Args:
-           news_items: List of news items to filter.
-           query: Optional query string to filter by relevance.
-       Returns:
-           List of filtered news items.
-        """
         now = datetime.now()
         filtered = []
 
-        # 1️⃣ фильтр по времени
+        # 1️⃣ фильтр по времени и источникам
         for item in news_items:
             if (now - item.date) > self.time_window:
                 continue
@@ -72,10 +81,18 @@ class NewsFilter:
                     results.append(item)
             filtered = sorted(results, key=lambda x: x.relevance, reverse=True)
 
-        # 3️⃣ удаляем дубли по смыслу
-        filtered = await self._deduplicate(filtered)
+        # 3️⃣ фильтр по содержанию
+        pre_filtered = []
+        for item in filtered:
+            text = f"{item.title} {item.contents or ''}".lower()
+            if self._contains_low_value_words(text) and not self._contains_important_words(text):
+                continue
+            pre_filtered.append(item)
 
-        return filtered
+        # 4️⃣ удаляем дубли по смыслу
+        deduped = await self._deduplicate(pre_filtered)
+
+        return deduped
 
     async def _deduplicate(self, items: List[SteamNewsItem]) -> List[SteamNewsItem]:
         unique = []
@@ -88,4 +105,5 @@ class NewsFilter:
         return unique
 
     def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
-        return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+        denom = (np.linalg.norm(a) * np.linalg.norm(b))
+        return float(np.dot(a, b) / denom) if denom else 0.0

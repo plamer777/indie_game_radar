@@ -53,5 +53,15 @@ class Settings(BaseSettings):
     OPEN_AI_KEY: str = Field(...)
     OPENAI_API_BASE: str = Field("https://api.openai.com/v1")
 
+    # RAWG
+    RAWG_API_KEY: str = Field(...)
+    RAWG_API_BASE: str = Field("https://api.rawg.io/api")
+
+    # Reddit
+    REDDIT_CLIENT_ID: str = Field(...)
+    REDDIT_CLIENT_SECRET: str = Field(...)
+    REDDIT_USER_AGENT: str = Field(...)
+    REDDIT_BASE_URL: str = Field("https://oauth.reddit.com")
+
 
 settings = Settings()  # evaluated at import time intentionally

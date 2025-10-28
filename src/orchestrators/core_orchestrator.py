@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from src.config.constants import SCHED_FIXED_HOURS_DEFAULT
+from src.orchestrators.strategies import ContentAllocationStrategy
 from src.scheduler.scheduler import AsyncScheduler
 from src.services.data_service import APIHarvesterService
 from src.services.publisher_service import PublisherService
@@ -39,7 +40,7 @@ class Orchestrator:
         # await self._run_cycle(top_n=settings.TOP_N_TO_PUBLISH)
         async def run_once():
             try:
-                await self._run_cycle(top_n=settings.TOP_N_TO_PUBLISH)
+                await self._run_cycle(top_n=C.DEFAULT_DAILY_POSTS)
             except Exception as e:
                 self._log.error("cycle_error", error=str(e))
 
@@ -97,7 +98,7 @@ class Orchestrator:
         """The method runs a full cycle of ranking and publishing.
         :param top_n: The number of games to publish.
         """
-        top_n = top_n or settings.TOP_N_TO_PUBLISH
+        top_n = top_n or C.DEFAULT_DAILY_POSTS
         cycle_log = self._log.bind(top_n=top_n)
         cycle_log.info("cycle_start")
         filtered_games_to_publish = 0
@@ -115,6 +116,7 @@ class Orchestrator:
                 filtered_news_to_publish=filtered_news_to_publish,
                 total_content=filtered_games_to_publish + filtered_news_to_publish
             )
-
+        content_strategy = ContentAllocationStrategy(games=filtered_games_to_publish, news=filtered_news_to_publish)
+        allocated = content_strategy.schedule_posts()
         # f) Публикации
         await self._publisher.publish_all()
