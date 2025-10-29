@@ -60,7 +60,7 @@ class RedditPost(BaseModel):
 
     extract_snippet: Optional[str] = Field(None, description="Короткая выдержка из selftext, пригодная для цитаты")
 
-    crawl_time: datetime = Field(default_factory=datetime.utcnow, description="Время скачивания/сохранения записи")
+    crawl_time: datetime = Field(default_factory=datetime.now, description="Время скачивания/сохранения записи")
 
     class Config:
         from_attributes = True

@@ -68,6 +68,7 @@ class GameSchema(BaseSchema):
 class RankedGameSchema(GameSchema):
     last_score: Optional[float] = None
     last_ranked_at: Optional[datetime] = None
+    recommendations: Optional[int] = None
 
 
 class GameSnapshotSchema(BaseSchema):
