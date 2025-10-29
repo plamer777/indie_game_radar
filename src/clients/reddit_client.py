@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime
 from typing import List, Optional
 from asyncpraw import Reddit
@@ -6,6 +5,7 @@ from asyncpraw.models import Submission
 from src.config.constants import REDDIT_STEAM_URL_RE, GAMEDEV_SUBREDDITS, DEFAULT_POSTS_LIMIT
 from src.config.settings import settings
 from src.schemas import RedditPostSchema
+from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -15,13 +15,22 @@ class RedditClient:
         client_id: str = settings.REDDIT_CLIENT_ID,
         client_secret: str = settings.REDDIT_CLIENT_SECRET,
         user_agent: str = settings.REDDIT_USER_AGENT,
-    ):
-        super().__init__(base_url=None)
-        self._reddit = Reddit(
-            client_id=client_id,
-            client_secret=client_secret,
-            user_agent=user_agent,
-        )
+    ) -> None:
+        self._reddit: Reddit | None = None
+        self._client_id = client_id
+        self._client_secret = client_secret
+        self._user_agent = user_agent
+        self._log = get_logger().bind(client="reddit")
+
+    def _ensure_client(self) -> Reddit:
+        """Создает Reddit объект только когда это действительно нужно."""
+        if self._reddit is None:
+            self._reddit = Reddit(
+                client_id=self._client_id,
+                client_secret=self._client_secret,
+                user_agent=self._user_agent,
+            )
+        return self._reddit
 
     async def search_posts_for_game(
         self,
@@ -34,6 +43,9 @@ class RedditClient:
         Ищет посты, связанные с игрой: по названию и/или по Steam AppID.
         Можно ограничить списком сабреддитов.
         """
+        log = self._log.bind(appid=steam_appid)
+        log.info("search_posts_for_game")
+        self._ensure_client()
         results: List[RedditPostSchema] = []
         query = f'"{game_name}"'
         if steam_appid:
@@ -50,7 +62,7 @@ class RedditClient:
                 post_model = await self._map_submission(submission, game_name, steam_appid)
                 results.append(post_model)
             except Exception as e:
-                logging.warning(f"Failed to map submission {submission.id}: {e}")
+                log.warning(f"Failed to map submission {submission.id}: {e}")
         return results
 
     async def _map_submission(
@@ -147,4 +159,6 @@ class RedditClient:
         return model
 
     async def close(self):
-        await self._reddit.close()
+        if self._reddit:
+            await self._reddit.close()
+            self._reddit = None

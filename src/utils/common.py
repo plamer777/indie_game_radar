@@ -3,7 +3,7 @@ import html
 import logging
 import re
 from functools import wraps
-from typing import Callable
+from typing import Callable, Optional
 from uuid import uuid4
 
 from bs4 import BeautifulSoup

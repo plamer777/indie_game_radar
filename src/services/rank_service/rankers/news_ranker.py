@@ -1,11 +1,10 @@
-import html
 import re
 from datetime import datetime
-from bs4 import BeautifulSoup
 from src.models import RankedGameModel
 from src.models.game import SteamNewsItem
-from src.utils.common import clamp
+from src.utils.common import clamp, clean_html
 from src.config import constants as C
+# ---------------------------------------------------------------------------------------------------------------------
 
 
 class NewsRanker:
@@ -14,22 +13,6 @@ class NewsRanker:
         :param game_rank_lookup: callable(game_id) -> last_score
         """
         self.game_rank_lookup = game_rank_lookup or (lambda gid: 0.0)
-
-    # -------------------------------------------------------------------------
-    # -------------------------   HELPER METHODS   -----------------------------
-    # -------------------------------------------------------------------------
-
-    def _clean_html(self, html_text: str) -> str:
-        """Удаляет HTML, ссылки, мусор"""
-        if not html_text:
-            return ""
-        soup = BeautifulSoup(html_text, "html.parser")
-        for tag in soup.find_all(["a", "script", "style"]):
-            tag.decompose()
-        text = soup.get_text(separator=" ")
-        text = html.unescape(text)
-        text = re.sub(r"\s+", " ", text).strip()
-        return text
 
     def _length_penalty(self, text: str) -> float:
         """Штрафует короткие тексты"""
@@ -148,7 +131,7 @@ class NewsRanker:
 
         # 3️⃣ Content richness
         raw_html = news.contents or ""
-        clean_text = self._clean_html(raw_html)
+        clean_text = clean_html(raw_html)
         content_len = len(clean_text)
         richness = clamp(content_len / C.MAX_CONTENT_LENGTH, 0.0, 1.0)
 
