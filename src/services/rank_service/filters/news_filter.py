@@ -3,27 +3,19 @@ from typing import List, Optional
 import numpy as np
 from openai import OpenAI
 from src.models.game import SteamNewsItem
+from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class NewsFilter:
-    LOW_VALUE_KEYWORDS = [
-        "hotfix", "update", "patch", "version", "dev log", "minor changes",
-        "bugfix", "roadmap", "announcement", "delay", "sale", "stream", "podcast"
-    ]
-
-    IMPORTANT_KEYWORDS = [
-        "release", "launch", "trailer", "new gameplay", "feature",
-        "partnership", "publisher", "collaboration", "major update"
-    ]
 
     def __init__(
         self,
         open_ai_client: OpenAI,
-        time_window_hours: int = 24,
+        time_window_hours: int = C.NEWS_FILTER_TIME_WINDOW_HOURS,
         allowed_feeds: Optional[List[str]] = None,
         blocked_feeds: Optional[List[str]] = None,
-        similarity_threshold: float = 0.75,
+        similarity_threshold: float = C.NEWS_FILTER_SIMILARITY_THRESHOLD,
         embedding_model: str = "text-embedding-3-small"
     ):
         self.time_window = timedelta(hours=time_window_hours)
@@ -44,11 +36,11 @@ class NewsFilter:
 
     def _contains_low_value_words(self, text: str) -> bool:
         t = text.lower()
-        return any(kw in t for kw in self.LOW_VALUE_KEYWORDS)
+        return any(kw in t for kw in C.NEWS_FILTER_LOW_VALUE_KEYWORDS)
 
     def _contains_important_words(self, text: str) -> bool:
         t = text.lower()
-        return any(kw in t for kw in self.IMPORTANT_KEYWORDS)
+        return any(kw in t for kw in C.NEWS_FILTER_IMPORTANT_KEYWORDS)
 
     async def filter_news(
         self,
@@ -99,7 +91,7 @@ class NewsFilter:
         seen_embeddings = []
         for item in items:
             emb = await self._get_embedding(f"{item.title} {item.contents or ''}")
-            if all(self._cosine_similarity(emb, e) < 0.92 for e in seen_embeddings):
+            if all(self._cosine_similarity(emb, e) < C.NEWS_FILTER_DUPLICATION_THRESHOLD for e in seen_embeddings):
                 unique.append(item)
                 seen_embeddings.append(emb)
         return unique

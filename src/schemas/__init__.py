@@ -1,6 +1,7 @@
 from .game_schemas import GameSnapshotSchema, GameSchema, RankedGameSchema
-from .publication_schemas import GamePublicationRecordSchema, NewsPublicationSchema
-from .reddit_schemas import RedditPostSchema
+from .publication_schemas import GamePublicationRecordSchema, NewsPublicationSchema, DiscountPublicationSchema, \
+    RedditPostPublicationSchema, AllocatedPostsSchema
+from .reddit_schemas import RedditPostSchema, RankedRedditPostSchema
 # ---------------------------------------------------------------------------------------------------------------------
 
 __all__ = [
@@ -9,6 +10,9 @@ __all__ = [
     "GamePublicationRecordSchema",
     "NewsPublicationSchema",
     "RankedGameSchema",
-    "RedditPostSchema"
-
+    "RedditPostSchema",
+    "RankedRedditPostSchema",
+    "RedditPostPublicationSchema",
+    "DiscountPublicationSchema",
+    "AllocatedPostsSchema"
 ]

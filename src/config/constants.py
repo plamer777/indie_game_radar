@@ -17,11 +17,10 @@ FILTER_GENRE_BLACKLIST = [
     "tutorial",
 ]
 FILTER_REQUIRE_HEADER_IMAGE = True
-FILTER_MAX_YEARS_SINCE_RELEASE = 8  # allow older only if score very high
+FILTER_MAX_YEARS_SINCE_RELEASE = 1  # allow older only if score very high
 FILTER_MIN_SCORE_FOR_OLD_TITLES = 0.85
 FILTER_MAX_PRICE = 40.0  # USD-equivalent heuristic
-FILTER_MIN_IGDB_RATING_COUNT = 10
-FILTER_MIN_POPULARITY_SUM = 10  # follows + hypes floor
+SCORE_PUBLISH_THRESHOLD = 0.5
 # ---------------------------------------------------------------------------------------------------------------------
 # Retry defaults
 DEFAULT_RETRY_ATTEMPTS = 3
@@ -121,7 +120,7 @@ SCHED_MIN_SLEEP_SECONDS = 1
 SCHED_FIXED_HOURS_DEFAULT = [8, 12, 16, 20, 23]
 # ---------------------------------------------------------------------------------------------------------------------
 # Ranker normalization and buckets
-RECENCY_YEAR_DENOMINATOR = 365.0
+GAME_RANKER_RECENCY_DELTA_DAYS = 180
 UNKNOWN_RECENCY_BASE = 0.2
 POPULARITY_LOG_NORMALIZER = 5000
 RATING_COUNT_LOG_NORMALIZER = 1000
@@ -256,7 +255,7 @@ LOW_VALUE_KEYWORDS = [
 
 DEVLOG_KEYWORDS = ["devlog", "patch notes", "bug fix"]
 
-
+# ---------------------------------------------------------------------------------------------------------------------
 # Reddit Ranker
 # ==========================================================
 # ⚙️ Основные веса для итогового Reddit-рейтинга
@@ -361,6 +360,22 @@ REDDIT_CLAMP_MIN = 0.0
 REDDIT_CLAMP_MAX = 1.0
 
 # ---------------------------------------------------------------------------------------------------------------------
+# News filter
+NEWS_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
+NEWS_FILTER_GAME_RATING_MIN = 0.4
+NEWS_FILTER_LOW_VALUE_KEYWORDS = [
+    "hotfix", "update", "patch", "version", "dev log", "minor changes",
+    "bugfix", "roadmap", "announcement", "delay", "sale", "stream", "podcast"
+]
+
+NEWS_FILTER_IMPORTANT_KEYWORDS = [
+    "release", "launch", "trailer", "new gameplay", "feature",
+    "partnership", "publisher", "collaboration", "major update"
+]
+NEWS_FILTER_TIME_WINDOW_HOURS = 96
+NEWS_FILTER_SIMILARITY_THRESHOLD = 0.75
+NEWS_FILTER_DUPLICATION_THRESHOLD = 0.92
+# ---------------------------------------------------------------------------------------------------------------------
 # GameFilter tuning
 PRICE_CAP_RELAX_SCORE_DELTA = 0.15  # allow higher price if score exceeds threshold by this delta
 PRICE_CAP_STRICT_FACTOR = 0.8       # strict cap factor when score is near threshold
@@ -378,6 +393,21 @@ PREMIUM_PRICE_DROP_PERCENT = 5.0  # требуемая скидка для пр�
 
 DISCOUNT_FILTER_DAYS_LIMIT = 10
 DISCOUNT_PUBLICATION_DAYS_LIMIT = 30
+DISCOUNT_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
+DISCOUNT_FILTER_GAME_RATING_MIN = 0.4
+# ---------------------------------------------------------------------------------------------------------------------
+# Reddit Post filter
+REDDIT_FILTER_BAD_FLAIRS = [
+    "question", "hiring", "looking for", "help", "feedback request",
+    "tutorial", "showcase", "free", "promo", "giveaway"
+]
+
+REDDIT_FILTER_MIN_CONTENT_LENGTH = 80          # минимальная длина текста поста
+REDDIT_FILTER_MIN_RANK_SCORE = 0.7             # минимальный рейтинг для публикации
+REDDIT_FILTER_SIMILARITY_THRESHOLD = 0.65      # минимальная семантическая близость к игре
+REDDIT_FILTER_TIME_WINDOW_HOURS = 96
+REDDIT_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
+REDDIT_FILTER_GAME_RATING_MIN = 0.4
 # ---------------------------------------------------------------------------------------------------------------------
 # Publication
 DEFAULT_DAILY_POSTS = 6
@@ -389,7 +419,7 @@ TIME_WINDOWS = {
 
 # Базовые приоритеты по времени суток
 TIME_PRIORITIES = {
-    "morning": {"news": 0.6, "games": 0.25, "discounts": 0.15},
-    "day": {"news": 0.3, "games": 0.35, "discounts": 0.35},
-    "evening": {"news": 0.2, "games": 0.4, "discounts": 0.4},
+    "morning": {"news": 0.4, "reddit_posts": 0.2, "games": 0.25, "discounts": 0.15},
+    "day": {"news": 0.2, "games": 0.2, "discounts": 0.2, "reddit_posts": 0.4},
+    "evening": {"news": 0.1, "games": 0.4, "discounts": 0.4, "reddit_posts": 0.1},
 }

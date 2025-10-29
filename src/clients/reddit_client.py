@@ -34,8 +34,7 @@ class RedditClient:
 
     async def search_posts_for_game(
         self,
-        game_name: str,
-        steam_appid: Optional[int] = None,
+        steam_appid: int,
         subreddit_list: Optional[List[str]] = GAMEDEV_SUBREDDITS,
         limit: int = DEFAULT_POSTS_LIMIT
     ) -> List[RedditPostSchema]:
@@ -47,9 +46,7 @@ class RedditClient:
         log.info("search_posts_for_game")
         self._ensure_client()
         results: List[RedditPostSchema] = []
-        query = f'"{game_name}"'
-        if steam_appid:
-            query += f' OR "store.steampowered.com/app/{steam_appid}"'
+        query = f'"store.steampowered.com/app/{steam_appid}"'
 
         # если указаны сабреддиты — объединяем через +
         subreddits = "all"
@@ -59,7 +56,7 @@ class RedditClient:
 
         async for submission in subreddit_obj.search(query, sort="new", limit=limit):
             try:
-                post_model = await self._map_submission(submission, game_name, steam_appid)
+                post_model = await self._map_submission(submission, steam_appid)
                 results.append(post_model)
             except Exception as e:
                 log.warning(f"Failed to map submission {submission.id}: {e}")
@@ -68,7 +65,6 @@ class RedditClient:
     async def _map_submission(
         self,
         submission: Submission,
-        game_name: str,
         steam_appid: Optional[int]
     ) -> RedditPostSchema:
         # извлечение steam_appid из URL или текста, если не передан
@@ -115,7 +111,6 @@ class RedditClient:
             reddit_id=submission.id,
             fullname=submission.name,
             steam_appid=extracted_appid,
-            game_name=game_name,
             title=submission.title,
             selftext=submission.selftext or None,
             selftext_html=getattr(submission, "selftext_html", None),

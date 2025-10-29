@@ -1,7 +1,6 @@
 from __future__ import annotations
 from src.models.game import GameModel
 from src.models import IGDBMeta
-from src.config.settings import settings
 from src.config import constants as C
 from datetime import datetime
 # ---------------------------------------------------------------------------------------------------------------------
@@ -13,7 +12,7 @@ class GameFilter:
     both Steam (`GameModel`) and IGDB (`IGDBMeta`) data.
     """
 
-    def __init__(self, threshold: float | None = settings.SCORE_PUBLISH_THRESHOLD) -> None:
+    def __init__(self, threshold: float | None = C.SCORE_PUBLISH_THRESHOLD) -> None:
         self._threshold = threshold
 
     def should_publish(self, game: GameModel, meta: IGDBMeta | None, score: float) -> bool:
@@ -38,11 +37,7 @@ class GameFilter:
             return False
 
         # 6) Recency (older titles usually skipped unless strong score)
-        if not self._pass_recency(game, meta, score):
-            return False
-
-        # 7) IGDB quality/popularity basic floors if meta is present
-        if meta and not self._pass_igdb_quality(meta, score):
+        if not self._pass_recency(game, meta):
             return False
 
         return True
@@ -74,26 +69,13 @@ class GameFilter:
         )
         return price <= cap
 
-    def _pass_recency(self, game: GameModel, meta: IGDBMeta | None, score: float) -> bool:
+    def _pass_recency(self, game: GameModel, meta: IGDBMeta | None) -> bool:
         dt = meta.release_date if (meta and meta.release_date) else game.release_date
         if not dt:
             # unknown release date: allow, other checks will gate
             return True
-        years = (datetime.now() - dt).days / C.RECENCY_YEAR_DENOMINATOR
-        if years <= C.FILTER_MAX_YEARS_SINCE_RELEASE:
+        days_from_release = (datetime.now() - dt).days
+        if days_from_release <= C.GAME_RANKER_RECENCY_DELTA_DAYS:
             return True
-        # If older than max, only allow with strong score
-        return score >= C.FILTER_MIN_SCORE_FOR_OLD_TITLES
 
-    def _pass_igdb_quality(self, meta: IGDBMeta, score: float) -> bool:
-        m = meta.metrics
-        if not m:
-            return True
-        # Popularity floor
-        pop_sum = (m.follows or 0) + (m.hypes or 0)
-        if pop_sum < C.FILTER_MIN_POPULARITY_SUM and score < (self._threshold + C.IGDB_FLOOR_RELAX_DELTA):
-            return False
-        # Rating count floor; tolerate if score strong
-        if (m.rating_count or 0) < C.FILTER_MIN_IGDB_RATING_COUNT and score < (self._threshold + C.IGDB_FLOOR_RELAX_DELTA):
-            return False
-        return True
+        return False

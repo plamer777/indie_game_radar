@@ -34,8 +34,6 @@ class Settings(BaseSettings):
 
     # App behavior
     SCORE_PUBLISH_THRESHOLD: float = Field(0.7)
-    RUN_INTERVAL_SECONDS: int = Field(4 * 60 * 60, description="Interval between cycles; if <=0 then single run")
-    ONE_SHOT: bool = Field(False, description="Run once and exit when True")
 
     # HTTP and rate limiting
     HTTP_TIMEOUT_SECONDS: float = Field(15.0)

@@ -1,6 +1,8 @@
 from .igdb import PopularityMetrics, IGDBMeta
 from .game import GameModel, RankedGameModel, GameSnapshot, AppModel
-from .publication import GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication
+from .publication import (
+    GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication, RedditPostPublication
+)
 from .reddit import RedditPost, RankedRedditPost
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -16,5 +18,6 @@ __all__ = [
     "NewsPublicationRecord",
     "DiscountPublication",
     "RedditPost",
-    "RankedRedditPost"
+    "RankedRedditPost",
+    "RedditPostPublication"
 ]

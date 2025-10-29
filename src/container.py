@@ -1,5 +1,4 @@
 from openai import OpenAI
-
 from src.clients import RedditClient
 from src.clients.igdb_client import AsyncIGDBClient
 from src.clients.steam_client import AsyncSteamClient
@@ -7,13 +6,13 @@ from src.clients.telegram_client import TelegramPublisher
 from src.config.settings import settings
 from src.db.repositories import GameRepository, IGDBRepository, GamePublicationRepository, AppRepository, \
     GameSnapshotRepository, NewsPublicationRepository, DiscountPublicationRepository, RankedGameRepository, \
-    RedditPostRepository, RankedRedditPostRepository
+    RedditPostRepository, RankedRedditPostRepository, RedditPostPublicationRepository
 from src.managers.cache import RedisCache
 from src.orchestrators.core_orchestrator import Orchestrator
 from src.scheduler.scheduler import AsyncScheduler
 from src.services.data_service import APIHarvesterService
 from src.services.publisher_service import PublisherService
-from src.services.rank_service.filters import DiscountFilter
+from src.services.rank_service.filters import DiscountFilter, RedditPostFilter
 from src.services.rank_service.filters.filter import GameFilter
 from src.services.rank_service.filters.news_filter import NewsFilter
 from src.services.rank_service.rank_engine_service import RankEngineService
@@ -38,6 +37,7 @@ gfilter = GameFilter()
 news_ranker = NewsRanker()
 news_filter = NewsFilter(client)
 discount_filter = DiscountFilter()
+reddit_post_filter = RedditPostFilter()
 reddit_post_ranker = RedditPostRanker()
 
 
@@ -52,6 +52,7 @@ news_pub_repo = NewsPublicationRepository()
 discount_pub_repo = DiscountPublicationRepository()
 reddit_post_repo = RedditPostRepository()
 ranked_reddit_posts_repo = RankedRedditPostRepository()
+reddit_post_publication_repo = RedditPostPublicationRepository()
 
 # Services
 api_harvester = APIHarvesterService(
@@ -81,6 +82,8 @@ rank_engine = RankEngineService(
     reddit_post_ranker=reddit_post_ranker,
     reddit_post_repo=reddit_post_repo,
     ranked_reddit_posts_repo=ranked_reddit_posts_repo,
+    reddit_post_filter=reddit_post_filter,
+    reddit_post_publication_repo=reddit_post_publication_repo
 )
 
 publisher = PublisherService(

@@ -137,8 +137,9 @@ class APIHarvesterService(BaseService):
     async def fetch_reddit_posts_by_game(self, game: GameSchema | GameModel) -> list[RedditPostSchema]:
         try:
             reddit_posts = await self._reddit_client.search_posts_for_game(
-                game_name=game.name, steam_appid=game.steam_appid
+                steam_appid=game.steam_appid
             )
+            [setattr(post, 'game_name', game.name) for post in reddit_posts]
             await self._reddit_posts.add_or_update(reddit_posts, search_field="reddit_id")
 
             return reddit_posts

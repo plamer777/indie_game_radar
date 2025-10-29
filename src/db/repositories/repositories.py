@@ -9,7 +9,8 @@ from src.config.constants import GAMES_COLLECTION, IGDB_META_COLLECTION, GAME_PU
 from src.db.repositories.base_repo import BaseRepository
 from src.models.game import GameModel, AppModel, GameSnapshot, RankedGameModel
 from src.models import IGDBMeta, RedditPost, RankedRedditPost
-from src.models.publication import GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication
+from src.models.publication import GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication, \
+    RedditPostPublication
 from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -140,6 +141,35 @@ class NewsPublicationRepository(BaseRepository[NewsPublicationRecord]):
     async def was_published(self, gid: str, channel: str = "telegram") -> bool:
         doc = await self._collection.find_one(
             {"gid": gid, "channel": channel, "status": PublishStatus.published}
+        )
+        return doc is not None
+
+
+class RedditPostPublicationRepository(BaseRepository[RedditPostPublication]):
+    def __init__(
+        self, collection_name: str = NEWS_PUBLICATIONS_COLLECTION,
+        model: type[RedditPostPublication] = RedditPostPublication,
+        db: AsyncIOMotorDatabase | None = None
+    ) -> None:
+        super().__init__(collection_name, model, db)
+
+    async def mark_published(self, record: RedditPostPublication) -> None:
+        data = record.model_dump()
+        data["status"] = PublishStatus.published
+        data["updated_at"] = datetime.now()
+        await self.add_or_update(data, search_field="reddit_id")
+
+    async def mark_failed(self, record: RedditPostPublication, error: str) -> None:
+        data = record.model_dump()
+        data["status"] = PublishStatus.failed
+        data["error"] = error
+        data["attempt"] = data.get("attempt", 0) + 1
+        data["updated_at"] = datetime.now()
+        await self.add_or_update(data, search_field="reddit_id")
+
+    async def was_published(self, reddit_id: str, channel: str = "telegram") -> bool:
+        doc = await self._collection.find_one(
+            {"reddit_id": reddit_id, "channel": channel, "status": PublishStatus.published}
         )
         return doc is not None
 

@@ -12,7 +12,6 @@ from src.services.rank_service.rank_engine_service import RankEngineService
 from src.utils.common import execute_in_thread
 from src.config import constants as C
 from src.utils.logging import get_logger
-from src.config.settings import settings
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -38,16 +37,6 @@ class Orchestrator:
             await asyncio.sleep(3600)
 
         # await self._run_cycle(top_n=settings.TOP_N_TO_PUBLISH)
-        async def run_once():
-            try:
-                await self._run_cycle(top_n=C.DEFAULT_DAILY_POSTS)
-            except Exception as e:
-                self._log.error("cycle_error", error=str(e))
-
-        try:
-            await self._scheduler.run_fixed_hours(run_once, SCHED_FIXED_HOURS_DEFAULT)
-        except asyncio.CancelledError:
-            pass
 
     @execute_in_thread
     async def _start_harvester(self):
@@ -105,18 +94,25 @@ class Orchestrator:
         filtered_news_to_publish = 0
         for attempt in range(5):
             filtered_games_to_publish = await self._rank_engine.filter_games(top_n)
-            filtered_news_to_publish = await self._rank_engine.filter_news(top_n - filtered_games_to_publish)
-            if filtered_games_to_publish + filtered_news_to_publish >= top_n:
+            filtered_news_to_publish = await self._rank_engine.filter_news(top_n)
+            filtered_discounts = await self._rank_engine.filter_discounts(top_n)
+            filtered_reddis_posts = await self._rank_engine.filter_reddit_posts(top_n)
+            content_strategy = ContentAllocationStrategy(
+                games=filtered_games_to_publish, news=filtered_news_to_publish, discounts=filtered_discounts,
+                reddit_posts=filtered_reddis_posts
+            )
+            allocated = content_strategy.schedule_daily_posts(top_n)
+            if len(allocated) == top_n:
                 break
 
             await asyncio.sleep(300)
-        if filtered_games_to_publish + filtered_news_to_publish < top_n:
+
+        else:
             cycle_log.warning(
                 "not_enough_content_to_publish", filtered_games_to_publish=filtered_games_to_publish,
                 filtered_news_to_publish=filtered_news_to_publish,
                 total_content=filtered_games_to_publish + filtered_news_to_publish
             )
-        content_strategy = ContentAllocationStrategy(games=filtered_games_to_publish, news=filtered_news_to_publish)
-        allocated = content_strategy.schedule_posts()
+
         # f) Публикации
         await self._publisher.publish_all()

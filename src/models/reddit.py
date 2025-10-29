@@ -1,10 +1,11 @@
-from pydantic import BaseModel, Field
+from pydantic import Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from src.models.base import BaseDBModel
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class RedditPost(BaseModel):
+class RedditPost(BaseDBModel):
     reddit_id: str = Field(..., description="ID поста (например '1oc22gq')")
     fullname: Optional[str] = Field(None, description="Полное имя (например t3_1oc22gq)")
     steam_appid: Optional[int] = Field(None, description="Steam AppID, если удаётся извлечь из ссылки")
