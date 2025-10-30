@@ -1,14 +1,23 @@
 from datetime import datetime
 from typing import Optional
+
+from src.models import RankedGameModel
 from src.models.game import GameSnapshot
 from src.schemas.publication_schemas import DiscountPublicationSchema
 from src.config import constants as C
+from src.services.rank_service.filters.base_filter import BaseFilter
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class DiscountFilter:
+class DiscountFilter(BaseFilter):
 
-    def detect_discount(self, game, snapshots: list[GameSnapshot]) -> Optional[DiscountPublicationSchema]:
+    def detect_discount(
+        self, game: RankedGameModel, snapshots: list[GameSnapshot]
+    ) -> Optional[DiscountPublicationSchema]:
+
+        if not self._is_indie_game(game):
+            return None
+
         if not snapshots or len(snapshots) < 2:
             return None
 
@@ -31,12 +40,12 @@ class DiscountFilter:
 
         if percent_drop >= dynamic_threshold:
             return DiscountPublicationSchema(
-                game_id=game.id,
                 old_price=with_min_price.price,
                 new_price=with_max_price.price,
                 percent_drop=round(percent_drop, 2),
                 absolute_drop=round(absolute_drop, 2),
                 detected_at=datetime.now(),
+                **game.model_dump()
             )
         return None
 

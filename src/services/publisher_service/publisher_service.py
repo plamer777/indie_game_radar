@@ -1,7 +1,9 @@
 from src.clients.telegram_client import TelegramPublisher
 from src.db.repositories import GamePublicationRepository, GameRepository, IGDBRepository
 from src.models.publication import PublishStatus
+from src.schemas import AllocatedPostsSchema
 from src.services.base_service import BaseService
+from src.services.publisher_service.renderers.tg_post_renderer import PostRenderer
 from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -17,25 +19,36 @@ class PublisherService(BaseService):
         self._games = game_repo
         self._igdb = igdb_repo
         self._log = get_logger().bind(service="PublisherService")
+        self._renderer = PostRenderer()
 
-    async def publish_all(self):
-        cycle_log = self._log.bind(service="publish_all")
-        cycle_log.info("cycle_start")
-        publications = await self._publication_repo.get_all({'status': PublishStatus.pending})
-        app_ids = [pub.steam_appid for pub in publications]
-        games = await self._games.get_all({'steam_appid': {'$in': app_ids}})
-        metas = await self._igdb.get_all({'steam_appid': {'$in': app_ids}})
-        games = {game.steam_appid: game for game in games}
-        metas = {meta.steam_appid: meta for meta in metas}
+    async def schedule_publications(self, posts: list[AllocatedPostsSchema]):
+        """Публикует (или планирует) посты в соответствии с их временем"""
+        cycle_log = self._log.bind(service="schedule_publications")
+        cycle_log.info("start")
+        published_count = 0
+        for record in posts:
+            published = await self._handle_publication(record)
+            if not published.post.error:
+                published_count += 1
 
-        for item in publications:
-            game = games.get(item.steam_appid)
-            meta = metas.get(item.steam_appid)
-            msg_id = await self._publisher.publish(game, meta, item.score_at_publish)
+        cycle_log.info("cycle_end", published=published_count)
+
+    async def _handle_publication(self, record: AllocatedPostsSchema):
+        """Планирует или сразу публикует пост"""
+        try:
+            text = self._renderer.render(record)
+            msg_id = await self._publisher.publish_message(text, schedule_time=record.publish_time)
             if msg_id:
-                item.message_id = msg_id
-                await self._publication_repo.mark_published(item)
+                record.post.message_id = msg_id
+                record.post.status = PublishStatus.published
+                await self._repo.mark_published(record.post)
+                self._log.info("publish_success", category=record.category, msg_id=msg_id)
+                return record
             else:
-                await self._publication_repo.mark_failed(item, error="publish_failed")
-
-        cycle_log.info("cycle_end", published=len(publications))
+                raise Exception("Telegram returned no message_id")
+        except Exception as e:
+            record.post.status = PublishStatus.failed
+            record.post.error = str(e)
+            await self._repo.mark_failed(record.post, error=str(e))
+            self._log.error("publish_failed", category=record.category, error=str(e))
+            return record

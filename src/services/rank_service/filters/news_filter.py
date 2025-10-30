@@ -2,12 +2,13 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 import numpy as np
 from openai import OpenAI
-from src.models.game import SteamNewsItem
+from src.models.game import SteamNewsItem, RankedGameModel
 from src.config import constants as C
+from src.services.rank_service.filters.base_filter import BaseFilter
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class NewsFilter:
+class NewsFilter(BaseFilter):
 
     def __init__(
         self,
@@ -16,14 +17,17 @@ class NewsFilter:
         allowed_feeds: Optional[List[str]] = None,
         blocked_feeds: Optional[List[str]] = None,
         similarity_threshold: float = C.NEWS_FILTER_SIMILARITY_THRESHOLD,
-        embedding_model: str = "text-embedding-3-small"
+        embedding_model: str = C.NEWS_FILTER_EMBEDDING_MODEL,
+        gpt_model: str = C.NEWS_FILTER_GPT_MODEL,
+        prompt_template: str = C.NEWS_FILTER_PROMPT_TEMPLATE
     ):
+        super().__init__(open_ai_client, gpt_model)
         self.time_window = timedelta(hours=time_window_hours)
         self.allowed_feeds = set(allowed_feeds or [])
         self.blocked_feeds = set(blocked_feeds or [])
         self.similarity_threshold = similarity_threshold
         self.embedding_model = embedding_model
-        self._open_ai_client = open_ai_client
+        self._prompt_template = prompt_template
 
     async def _get_embedding(self, text: str) -> np.ndarray:
         if not text.strip():
@@ -45,10 +49,14 @@ class NewsFilter:
     async def filter_news(
         self,
         news_items: List[SteamNewsItem],
+        game: RankedGameModel,
         query: Optional[str] = None
     ) -> List[SteamNewsItem]:
         now = datetime.now()
         filtered = []
+
+        if not self._is_indie_game(game):
+            return filtered
 
         # 1️⃣ фильтр по времени и источникам
         for item in news_items:
@@ -83,8 +91,14 @@ class NewsFilter:
 
         # 4️⃣ удаляем дубли по смыслу
         deduped = await self._deduplicate(pre_filtered)
+        filtered = []
+        for item in deduped:
+            prompt = self._prompt_template.format(game_name=game.name, title=item.title, text=item.contents)
+            content_filter = await self._filter_by_content(prompt)
+            if content_filter["suitable"]:
+                filtered.append(item)
 
-        return deduped
+        return filtered
 
     async def _deduplicate(self, items: List[SteamNewsItem]) -> List[SteamNewsItem]:
         unique = []

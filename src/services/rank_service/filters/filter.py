@@ -1,21 +1,27 @@
 from __future__ import annotations
-from src.models.game import GameModel
+from src.models.game import GameModel, RankedGameModel
 from src.models import IGDBMeta
 from src.config import constants as C
 from datetime import datetime
+from src.services.rank_service.filters.base_filter import BaseFilter
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class GameFilter:
+class GameFilter(BaseFilter):
     """
     Publication filter that combines score threshold with domain rules using
     both Steam (`GameModel`) and IGDB (`IGDBMeta`) data.
     """
 
     def __init__(self, threshold: float | None = C.SCORE_PUBLISH_THRESHOLD) -> None:
+        super().__init__()
         self._threshold = threshold
 
-    def should_publish(self, game: GameModel, meta: IGDBMeta | None, score: float) -> bool:
+    def should_publish(self, game: RankedGameModel, meta: IGDBMeta | None, score: float) -> bool:
+
+        if not self._is_indie_game(game):
+            return False
+
         # 1) Score threshold
         if score < self._threshold:
             return False

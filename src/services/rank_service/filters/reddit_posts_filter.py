@@ -4,29 +4,33 @@ import numpy as np
 import re
 from openai import OpenAI
 from src.models import RankedGameModel
-from src.models.reddit import RedditPost, RankedRedditPost
+from src.models.reddit import RankedRedditPost
 from src.config import constants as C
+from src.services.rank_service.filters.base_filter import BaseFilter
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class RedditPostFilter:
+class RedditPostFilter(BaseFilter):
 
     def __init__(
         self,
         open_ai_client: OpenAI,
         time_window_hours: int = C.REDDIT_FILTER_TIME_WINDOW_HOURS,
         similarity_threshold: float = C.REDDIT_FILTER_SIMILARITY_THRESHOLD,
-        embedding_model: str = "text-embedding-3-small"
+        embedding_model: str = C.REDDIT_FILTER_EMBEDDING_MODEL,
+        gpt_model: str = C.REDDIT_FILTER_GPT_MODEL,
+        prompt_template: str = C.REDDIT_FILTER_PROMPT_TEMPLATE
     ):
-        self._client = open_ai_client
+        super().__init__(open_ai_client, gpt_model)
         self.time_window = timedelta(hours=time_window_hours)
         self.similarity_threshold = similarity_threshold
         self.embedding_model = embedding_model
+        self._prompt_template = prompt_template
 
     async def _get_embedding(self, text: str) -> np.ndarray:
         if not text.strip():
             return np.zeros(1536)
-        response = await self._client.embeddings.create(
+        response = await self._open_ai_client.embeddings.create(
             model=self.embedding_model,
             input=text
         )
@@ -40,6 +44,9 @@ class RedditPostFilter:
         now = datetime.now()
         result = []
 
+        if not self._is_indie_game(game):
+            return result
+
         # 1️⃣ Базовая фильтрация по времени и минимальным метрикам
         for p in posts:
             if (now - p.created_at) > self.time_window:
@@ -51,17 +58,19 @@ class RedditPostFilter:
                 continue
             if p.link_flair_text and self._has_bad_flair(p.link_flair_text):
                 continue
-            result.append(p)
+            prompt = self._prompt_template.format(game_name=game.name, title=p.title, text=p.selftext)
+            content_filter = await self._filter_by_content(prompt)
+            if not content_filter["suitable"]:
+                continue
 
-        # 2️⃣ Проверка релевантности игре (если указана)
-        result = await self._filter_by_relevance(result, game)
+            result.append(p)
 
         # 3️⃣ Сортировка: сначала по дате, потом по рейтингу
         result.sort(key=lambda p: (p.created_at, p.rank_score), reverse=True)
         return result
 
     async def _filter_by_relevance(
-        self, posts: List[RedditPost], game: RankedGameModel
+        self, posts: List[RankedRedditPost], game: RankedGameModel
     ) -> List[RankedRedditPost]:
         """
         Проверяет релевантность постов игре:
@@ -70,13 +79,6 @@ class RedditPostFilter:
           3️⃣ остальные посты отбрасываются
         """
         filtered = []
-        game_tokens = re.findall(r"[a-zA-Z0-9]+", game.name.lower())
-        use_embedding = len(game_tokens) >= 3
-
-        # заранее вычисляем эмбеддинг игры (только если нужно)
-        game_emb = None
-        if use_embedding:
-            game_emb = await self._get_embedding(game.name)
 
         steam_pattern = re.compile(r"store\.steampowered\.com/app/(\d+)", re.IGNORECASE)
 
@@ -93,15 +95,6 @@ class RedditPostFilter:
                         continue
                 except ValueError:
                     pass
-
-            # 2️⃣ проверка по эмбеддингу (если игра достаточно уникальна)
-            if use_embedding and game_emb is not None:
-                text = f"{p.title} {p.selftext or ''}"
-                emb = await self._get_embedding(text)
-                sim = self._cosine_similarity(game_emb, emb)
-                if sim >= self.similarity_threshold:
-                    p.relevance = round(sim, 3)
-                    filtered.append(p)
 
         return filtered
 

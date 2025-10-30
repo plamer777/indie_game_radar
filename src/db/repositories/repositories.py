@@ -167,10 +167,16 @@ class RedditPostPublicationRepository(BaseRepository[RedditPostPublication]):
         data["updated_at"] = datetime.now()
         await self.add_or_update(data, search_field="reddit_id")
 
-    async def was_published(self, reddit_id: str, channel: str = "telegram") -> bool:
-        doc = await self._collection.find_one(
-            {"reddit_id": reddit_id, "channel": channel, "status": PublishStatus.published}
-        )
+    async def was_published(self, reddit_post: RankedRedditPost, channel: str = "telegram") -> bool:
+        query = {
+            '$or': [
+                {"reddit_id": reddit_post.reddit_id},
+                {"title": reddit_post.title, "author": reddit_post.author}
+        ],
+             "channel": channel, "status": PublishStatus.published
+        }
+        doc = await self._collection.find_one(query)
+
         return doc is not None
 
 

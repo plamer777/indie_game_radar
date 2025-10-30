@@ -1,5 +1,5 @@
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from src.config import constants as C
 from src.schemas import (
     GamePublicationRecordSchema,
@@ -34,7 +34,7 @@ class ContentAllocationStrategy:
 
     def _determine_time_bounds(self) -> tuple[datetime, datetime]:
         """Определяет начало и конец планирования публикаций."""
-        now = datetime.now()
+        now = datetime.now(UTC)
         start_hour, end_hour = C.TIME_WINDOWS["morning"][0], C.TIME_WINDOWS["evening"][1]
         today_start = now.replace(hour=start_hour, minute=0, second=0, microsecond=0)
         today_end = now.replace(hour=end_hour, minute=0, second=0, microsecond=0)

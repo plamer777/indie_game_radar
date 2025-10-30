@@ -37,7 +37,7 @@ gfilter = GameFilter()
 news_ranker = NewsRanker()
 news_filter = NewsFilter(client)
 discount_filter = DiscountFilter()
-reddit_post_filter = RedditPostFilter()
+reddit_post_filter = RedditPostFilter(client)
 reddit_post_ranker = RedditPostRanker()
 
 

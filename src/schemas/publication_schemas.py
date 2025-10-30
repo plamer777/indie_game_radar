@@ -1,7 +1,9 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Union
+from pydantic import Field
 from src.config import constants as C
+from src.models.game import PriceInfo, SteamExtendedInfo, PlatformsInfo
 from src.models.publication import PublishStatus
 from src.schemas.base import BaseSchema
 # ---------------------------------------------------------------------------------------------------------------------
@@ -13,8 +15,27 @@ class GamePublicationRecordSchema(BaseSchema):
     status: PublishStatus = PublishStatus.pending
     message_id: Optional[str] = None
     attempt: int = 0
-    score_at_publish: Optional[float] = None
     error: Optional[str] = None
+    name: str
+    supported_languages: Optional[str] = None
+    short_description: Optional[str] = None
+    detailed_description: Optional[str] = None
+    release_date: Optional[datetime] = None
+    is_coming_soon: Optional[bool] = True
+    genres: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    developers: list[str] = Field(default_factory=list)
+    publishers: list[str] = Field(default_factory=list)
+    website: Optional[str] = None
+    header_image: Optional[str] = None
+    background: Optional[str] = None
+    screenshots: list[str] = Field(default_factory=list)
+    price: Optional[PriceInfo] = None
+    is_free: bool = False
+    ext_info: Optional[SteamExtendedInfo] = None
+    platforms: PlatformsInfo = Field(default_factory=PlatformsInfo)
+    recommendations: Optional[int] = None
+    categories: list[str] = Field(default_factory=list)
 
 
 class NewsPublicationSchema(BaseSchema):
@@ -37,7 +58,11 @@ class NewsPublicationSchema(BaseSchema):
 
 
 class DiscountPublicationSchema(BaseSchema):
-    game_id: str
+    steam_appid: str
+    name: str
+    detailed_description: Optional[str] = None
+    header_image: Optional[str] = None
+    genres: list[str] = Field(default_factory=list)
     old_price: float
     new_price: float
     channel: str = C.DEFAULT_TELEGRAM_CHANNEL

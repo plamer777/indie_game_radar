@@ -116,9 +116,7 @@ class RankEngineService(BaseService):
                 if self._filter.should_publish(game, meta, game.last_score):
                     was = await self._publish_repo.was_published(game.steam_appid)
                     if not was:
-                        rec = GamePublicationRecordSchema(
-                            steam_appid=game.steam_appid, score_at_publish=game.last_score
-                        )
+                        rec = GamePublicationRecordSchema(**game.model_dump())
                         unpublished.append(rec)
                     if len(unpublished) >= top_n:
                         break
@@ -180,7 +178,7 @@ class RankEngineService(BaseService):
         )
         unpublished = []
         async for game in scored_games:
-            filtered = await self._news_filter.filter_news(game.last_news[:1])
+            filtered = await self._news_filter.filter_news(game.last_news[:1], game)
             for news in filtered:
                 was = await self._news_publication_repo.was_published(news.gid)
                 if not was:
@@ -212,7 +210,7 @@ class RankEngineService(BaseService):
             )
             filtered = await self._reddit_post_filter.filter_posts(reddit_posts, game)
             for post in filtered:
-                was = await self._reddit_post_publication_repo.was_published(post.reddit_id)
+                was = await self._reddit_post_publication_repo.was_published(post)
                 if not was:
                     unpublished.append(RedditPostPublicationSchema(**post.model_dump()))
 

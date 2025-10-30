@@ -375,6 +375,30 @@ NEWS_FILTER_IMPORTANT_KEYWORDS = [
 NEWS_FILTER_TIME_WINDOW_HOURS = 96
 NEWS_FILTER_SIMILARITY_THRESHOLD = 0.75
 NEWS_FILTER_DUPLICATION_THRESHOLD = 0.92
+
+NEWS_FILTER_GPT_MODEL = 'gpt-4o-mini'
+NEWS_FILTER_EMBEDDING_MODEL = 'text-embedding-3-small'
+
+NEWS_FILTER_PROMPT_TEMPLATE = """
+You are reviewing a Steam news post to decide if it would be interesting to indie gamers on Telegram.
+
+Focus on:
+- audience benefit: something they’d want to read or share;
+- novelty, entertainment, or community importance;
+- clarity and storytelling quality;
+- skip overly technical or repetitive posts.
+
+Return JSON only:
+{{
+  "suitable": true|false,
+  "confidence": 0.0–1.0,
+  "reason": "Short reason"
+}}
+
+Game: {game_name}
+Title: {title}
+Text: {text}
+"""
 # ---------------------------------------------------------------------------------------------------------------------
 # GameFilter tuning
 PRICE_CAP_RELAX_SCORE_DELTA = 0.15  # allow higher price if score exceeds threshold by this delta
@@ -408,6 +432,34 @@ REDDIT_FILTER_SIMILARITY_THRESHOLD = 0.65      # минимальная сема
 REDDIT_FILTER_TIME_WINDOW_HOURS = 96
 REDDIT_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
 REDDIT_FILTER_GAME_RATING_MIN = 0.4
+
+REDDIT_FILTER_GPT_MODEL = 'gpt-4o-mini'
+REDDIT_FILTER_EMBEDDING_MODEL = 'text-embedding-3-small'
+
+REDDIT_FILTER_PROMPT_TEMPLATE = """
+You are a professional journalist and content curator specializing in indie video games. 
+Analyze the Reddit post below and decide whether it is suitable for publication in a Telegram channel about PC indie games.
+
+Input data:
+Game title: {game_name}
+Post title: {title}
+Post text: {text}
+
+Evaluate:
+1. Is the post clearly related to the game?
+2. Does it contain something interesting for gamers (opinions, humor, insights, news)?
+3. Is it free from spam, ads, or toxicity?
+4. Is it appropriate in tone and format for a Telegram audience?
+
+Respond **only** in strict JSON format:
+{{
+  "suitable": true|false,
+  "confidence": 0.0–1.0,
+  "reason": "Short explanation"
+}}
+"""
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 # Publication
 DEFAULT_DAILY_POSTS = 6
@@ -423,3 +475,160 @@ TIME_PRIORITIES = {
     "day": {"news": 0.2, "games": 0.2, "discounts": 0.2, "reddit_posts": 0.4},
     "evening": {"news": 0.1, "games": 0.4, "discounts": 0.4, "reddit_posts": 0.1},
 }
+
+GAME_POST_TEMPLATES = [
+    # --- Template 1 ---
+    """
+<b>{name}</b> — a fresh indie release on Steam 🎮
+
+{short_description or detailed_description or ''}
+
+<b>Developed by:</b> {', '.join(developers) if developers else 'Unknown'}
+<b>Genres:</b> {', '.join(genres) if genres else '—'}
+<b>Platforms:</b> {', '.join(platforms.available()) if platforms else '—'}
+<b>Languages:</b> {supported_languages or '—'}
+<b>Release date:</b> {release_date.strftime('%B %d, %Y') if release_date else '—'}
+
+{('<a href="' + website + '">Official Website</a> | ' if website else '')}<a href="https://store.steampowered.com/app/{steam_appid}">Steam Page</a>
+
+#{' #'.join(tags[:6]) if tags else '#indiegames'}
+""",
+    # --- Template 2 ---
+    """
+🔥 <b>{name}</b> is out now on Steam!
+
+{short_description or detailed_description or ''}
+
+<b>Publisher:</b> {', '.join(publishers) if publishers else '—'}
+<b>Developers:</b> {', '.join(developers) if developers else '—'}
+<b>Genres:</b> {', '.join(genres) if genres else '—'}
+
+{('<a href="' + website + '">Website</a> | ' if website else '')}<a href="https://store.steampowered.com/app/{steam_appid}">Steam</a>
+
+#{' #'.join(tags[:5]) if tags else '#indie #newrelease'}
+""",
+    # --- Template 3 ---
+    """
+🎨 <b>{name}</b> — a beautiful new indie game with {', '.join(genres).lower() if genres else 'unique style'} vibes
+
+{short_description or detailed_description or ''}
+
+<b>Available on:</b> {', '.join(platforms.available()) if platforms else '—'}
+<b>Developed by:</b> {', '.join(developers) if developers else '—'}
+<b>Tags:</b> {', '.join(tags[:6]) if tags else '—'}
+
+<a href="https://store.steampowered.com/app/{steam_appid}">🕹️ View on Steam</a>
+"""
+]
+
+DISCOUNT_POST_TEMPLATES = [
+    # --- Template 1 ---
+    """
+💰 <b>{name}</b> is on sale!
+
+<b>Old price:</b> <s>{old_price:.2f}$</s> → <b>{new_price:.2f}$</b>  
+<b>Discount:</b> {int(percent_drop)}% off  
+
+{detailed_description or ''}
+
+<b>Genres:</b> {', '.join(genres) if genres else '—'}  
+
+<a href="https://store.steampowered.com/app/{steam_appid}">🎮 Check it on Steam</a>
+#indiegames #discount #{'_'.join(genres[:2]) if genres else ''}
+""",
+    # --- Template 2 ---
+    """
+🔥 <b>Deal Alert!</b> {name} is now <b>{int(percent_drop)}% OFF</b>
+
+Old: {old_price:.2f}$ → New: {new_price:.2f}$  
+{detailed_description or ''}
+
+<a href="https://store.steampowered.com/app/{steam_appid}">Get it on Steam</a>  
+#indie #sale #{'_'.join(genres[:2]) if genres else ''}
+""",
+    # --- Template 3 ---
+    """
+📉 <b>{name}</b> just dropped in price!
+
+💸 From {old_price:.2f}$ → {new_price:.2f}$  
+🔥 {int(percent_drop)}% discount  
+
+Genres: {', '.join(genres) if genres else '—'}  
+<a href="https://store.steampowered.com/app/{steam_appid}">Steam link</a>
+#indiegames #deal
+"""
+]
+
+NEWS_POST_TEMPLATES = [
+    # --- Template 1 ---
+    """
+📰 <b>{title}</b>
+
+{contents[:500]}{'...' if len(contents) > 500 else ''}
+
+<b>Game ID:</b> {appid}  
+<b>Source:</b> {feedlabel or 'Steam News'}  
+<b>Author:</b> {author or '—'}  
+📅 {date.strftime('%B %d, %Y')}
+
+<a href="{url}">Read full article</a>
+#indiegames #news
+""",
+    # --- Template 2 ---
+    """
+⚙️ <b>Update News for Steam App #{appid}</b>
+
+{title}  
+{contents[:400]}{'...' if len(contents) > 400 else ''}
+
+<b>Published on:</b> {date.strftime('%B %d, %Y')}  
+<a href="{url}">Read more</a>
+#indie #patchnotes
+""",
+    # --- Template 3 ---
+    """
+💡 <b>{title}</b>
+
+{contents[:450]}{'...' if len(contents) > 450 else ''}
+
+By {author or 'Anonymous'}  
+<a href="{url}">📖 Full story</a>  
+#indie #gamingnews
+"""
+]
+
+REDDIT_POST_TEMPLATES = [
+    # --- Template 1 ---
+    """
+👨‍💻 <b>{title}</b>
+
+{extract_snippet or (selftext[:400] + '...') if selftext else ''}
+
+<b>Author:</b> {author or 'Unknown'}  
+<b>Subreddit:</b> r/{subreddit or 'unknown'}  
+👍 {score or 0} upvotes | 💬 {num_comments or 0} comments  
+
+<a href="https://reddit.com{permalink}">Read on Reddit</a>
+#indiegames #gamedev #{subreddit or ''}
+""",
+    # --- Template 2 ---
+    """
+🎮 <b>{title}</b>  
+
+> {extract_snippet or (selftext[:250] + '...') if selftext else ''}
+
+🧩 Shared by {author or 'a developer'} on r/{subreddit or 'unknown'}  
+<a href="https://reddit.com{permalink}">Open Reddit Thread</a>  
+#indiedev #community #{subreddit or ''}
+""",
+    # --- Template 3 ---
+    """
+💬 <b>{title}</b>
+
+{extract_snippet or (selftext[:350] + '...') if selftext else ''}
+
+🔗 <a href="https://reddit.com{permalink}">Discuss on Reddit</a>  
+👍 {ups or 0} upvotes | 💬 {num_comments or 0} comments  
+#indiegames #reddit #{subreddit or ''}
+"""
+]
