@@ -46,6 +46,7 @@ class NewsPublicationSchema(BaseSchema):
     url: Optional[str] = None
     author: Optional[str] = None
     contents: str
+    header_image: Optional[str] = None
     feedlabel: Optional[str] = None
     appid: int
     date: datetime
@@ -61,7 +62,9 @@ class DiscountPublicationSchema(BaseSchema):
     steam_appid: str
     name: str
     detailed_description: Optional[str] = None
+    short_description: Optional[str] = None
     header_image: Optional[str] = None
+    tags: list[str] = Field(default_factory=list)
     genres: list[str] = Field(default_factory=list)
     old_price: float
     new_price: float

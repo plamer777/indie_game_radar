@@ -1,86 +1,116 @@
-from pydantic import BaseModel
-from src.schemas import GamePublicationRecordSchema, DiscountPublicationSchema, NewsPublicationSchema, \
-    RedditPostPublicationSchema, AllocatedPostsSchema
-
-
+import random
+from jinja2 import Environment, BaseLoader, select_autoescape
+from src.schemas import (
+    GamePublicationRecordSchema,
+    DiscountPublicationSchema,
+    NewsPublicationSchema,
+    RedditPostPublicationSchema,
+    AllocatedPostsSchema,
+)
+from src.templates import (
+    GAME_POST_TEMPLATES,
+    DISCOUNT_POST_TEMPLATES,
+    NEWS_POST_TEMPLATES,
+    REDDIT_POST_TEMPLATES,
+)
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class PostRenderer:
-    """Universal Telegram post renderer for Indie Game Radar"""
+    """Universal Telegram post renderer using Jinja2"""
 
     def __init__(self):
+        self.env = Environment(
+            loader=BaseLoader(),
+            autoescape=select_autoescape(enabled_extensions=('html', 'xml')),
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+
         self._builders = {
-            "game": self._render_game_post,
-            "discount": self._render_discount_post,
+            "games": self._render_game_post,
+            "discounts": self._render_discount_post,
             "news": self._render_news_post,
-            "reddit_post": self._render_reddit_post,
+            "reddit_posts": self._render_reddit_post,
         }
 
+    # ------------------------------------------------------------
     def render(self, record: AllocatedPostsSchema) -> str:
-        """Select and render the post template based on record type"""
+        """Selects and renders post template by category"""
         record_type = record.category.lower()
         if record_type not in self._builders:
             raise ValueError(f"Unsupported publication type: {record_type}")
         return self._builders[record_type](record)
 
-    # --- Templates ---
-
+    # ------------------------------------------------------------
+    # --- GAME POST ---
     def _render_game_post(self, game: GamePublicationRecordSchema) -> str:
-        genres = ", ".join(game.genres) if game.genres else "Unknown"
-        devs = ", ".join(game.developers) if game.developers else "Unknown"
-        tags = ", ".join(game.tags[:5]) if game.tags else ""
-        price = (
-            "Free to play 🆓"
-            if game.is_free
-            else f"💰 {game.price.final if game.price else 'N/A'}"
-        )
-        release = (
-            "Coming soon 🚀"
-            if game.is_coming_soon
-            else f"Released on {game.release_date.strftime('%b %d, %Y')}"
-            if game.release_date
-            else ""
-        )
+        context = {
+            "name": game.name,
+            "short_description": game.short_description or game.detailed_description or "",
+            "developers": ', '.join(game.developers or []) if game.developers else "-",
+            "publishers": ', '.join(game.publishers or []) if game.publishers else "-",
+            "genres": ', '.join(game.genres or []) if game.genres else "unique style",
+            "platforms": [p for p, v in game.platforms.model_dump().items() if v] if game.platforms else "—",
+            "supported_languages": game.supported_languages or "—",
+            "release_date": game.release_date.strftime("%B %d, %Y") if game.release_date else "—",
+            "website": game.website,
+            "steam_appid": game.steam_appid,
+            "tags": ', '.join(game.tags or []) if game.tags else "—",
+            "image_url": getattr(game, "header_image", None),
+        }
 
-        return (
-            f"<b>{game.name}</b>\n\n"
-            f"{game.short_description or ''}\n\n"
-            f"<b>Genres:</b> {genres}\n"
-            f"<b>Developers:</b> {devs}\n"
-            f"<b>Tags:</b> {tags}\n"
-            f"<b>Platforms:</b> {', '.join([p for p, v in game.platforms.model_dump().items() if v])}\n"
-            f"<b>Status:</b> {release}\n"
-            f"<b>Price:</b> {price}\n\n"
-            f"🔗 <a href='https://store.steampowered.com/app/{game.steam_appid}'>View on Steam</a>"
-        )
+        template = self.env.from_string(random.choice(GAME_POST_TEMPLATES))
+        return template.render(**context).strip()
 
+    # ------------------------------------------------------------
+    # --- DISCOUNT POST ---
     def _render_discount_post(self, disc: DiscountPublicationSchema) -> str:
-        return (
-            f"🔥 <b>Big Discount!</b>\n\n"
-            f"<b>{disc.name}</b>\n"
-            f"💸 {disc.old_price:.2f}$ → <b>{disc.new_price:.2f}$</b> ({disc.percent_drop:.0f}% off!)\n"
-            f"🎮 Genres: {', '.join(disc.genres) if disc.genres else 'Unknown'}\n\n"
-            f"<a href='https://store.steampowered.com/app/{disc.steam_appid}'>Get the deal</a>"
-        )
+        context = {
+            "name": disc.name,
+            "original_price": disc.old_price,
+            "price": disc.new_price,
+            "discount_percent": int(disc.percent_drop),
+            "short_description": disc.short_description or disc.detailed_description or "",
+            "genres": ', '.join(disc.genres or []) if disc.genres else "unique style",
+            "steam_appid": disc.steam_appid,
+            "tags": ', '.join(disc.tags or []) if disc.tags else "—",
+            "image_url": getattr(disc, "header_image", None),
+        }
 
+        template = self.env.from_string(random.choice(DISCOUNT_POST_TEMPLATES))
+        return template.render(**context).strip()
+
+    # ------------------------------------------------------------
+    # --- NEWS POST ---
     def _render_news_post(self, news: NewsPublicationSchema) -> str:
-        date_str = news.date.strftime("%b %d, %Y")
-        snippet = (news.contents[:400] + "…") if len(news.contents) > 400 else news.contents
-        return (
-            f"📰 <b>{news.title}</b>\n\n"
-            f"{snippet}\n\n"
-            f"📅 {date_str}\n"
-            f"🔗 <a href='{news.url}'>Read more</a>"
-        )
+        context = {
+            "title": news.title,
+            "contents": news.contents or "",
+            "appid": news.appid,
+            "feedlabel": news.feedlabel or "Steam News",
+            "author": news.author or "—",
+            "date": news.date.strftime("%B %d, %Y") if news.date else "—",
+            "url": news.url,
+            "image_url": getattr(news, "header_image", None),
+        }
 
+        template = self.env.from_string(random.choice(NEWS_POST_TEMPLATES))
+        return template.render(**context).strip()
+
+    # ------------------------------------------------------------
+    # --- REDDIT POST ---
     def _render_reddit_post(self, post: RedditPostPublicationSchema) -> str:
-        link = f"https://www.reddit.com{post.permalink}" if post.permalink else post.url or ""
-        upvotes = f"⬆️ {post.ups or 0}  💬 {post.num_comments or 0}"
-        snippet = (post.selftext[:400] + "…") if post.selftext else post.extract_snippet or ""
-        return (
-            f"👾 <b>{post.title}</b>\n\n"
-            f"{snippet}\n\n"
-            f"{upvotes}\n"
-            f"📎 <a href='{link}'>View on Reddit</a>"
-        )
+        context = {
+            "title": post.title,
+            "selftext": post.selftext or "",
+            "author": post.author or "Unknown",
+            "subreddit": post.subreddit or "unknown",
+            "score": post.ups or 0,
+            "num_comments": post.num_comments or 0,
+            "permalink": post.permalink or "",
+            "image_url": post.preview_images[0] if post.preview_images else None,
+        }
+
+        template = self.env.from_string(random.choice(REDDIT_POST_TEMPLATES))
+        return template.render(**context).strip()

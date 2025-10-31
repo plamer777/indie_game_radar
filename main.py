@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
-
 from src.clients import RedditClient
+
 from src.container import orchestrator
 from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------

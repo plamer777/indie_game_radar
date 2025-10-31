@@ -1,7 +1,10 @@
 asyncpraw==7.8.1
 backports.tarfile==1.2.0
 importlib-metadata==8.0.0
+inflect==7.3.1
+jaraco-functools==4.3.0
 jaraco.collections==5.1.0
+jinja2==3.1.6
 motor==3.6.0
 numpy==2.3.4
 openai==2.6.0

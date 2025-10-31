@@ -3,7 +3,6 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Optional
-from src.config.constants import SCHED_FIXED_HOURS_DEFAULT
 from src.orchestrators.strategies import ContentAllocationStrategy
 from src.scheduler.scheduler import AsyncScheduler
 from src.services.data_service import APIHarvesterService
@@ -92,6 +91,7 @@ class Orchestrator:
         cycle_log.info("cycle_start")
         filtered_games_to_publish = 0
         filtered_news_to_publish = 0
+        allocated = []
         for attempt in range(5):
             filtered_games_to_publish = await self._rank_engine.filter_games(top_n)
             filtered_news_to_publish = await self._rank_engine.filter_news(top_n)
@@ -105,7 +105,7 @@ class Orchestrator:
             if len(allocated) == top_n:
                 break
 
-            await asyncio.sleep(300)
+            await asyncio.sleep(600)
 
         else:
             cycle_log.warning(
@@ -115,4 +115,4 @@ class Orchestrator:
             )
 
         # f) Публикации
-        await self._publisher.publish_all()
+        await self._publisher.schedule_publications(allocated)

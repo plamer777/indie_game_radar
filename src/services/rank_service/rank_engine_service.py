@@ -182,7 +182,7 @@ class RankEngineService(BaseService):
             for news in filtered:
                 was = await self._news_publication_repo.was_published(news.gid)
                 if not was:
-                    unpublished.append(NewsPublicationSchema(**news.model_dump()))
+                    unpublished.append(NewsPublicationSchema(**news.model_dump(), header_image=game.header_image))
 
                 if len(unpublished) >= top_n:
                     break

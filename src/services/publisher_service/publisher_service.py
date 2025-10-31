@@ -1,5 +1,8 @@
 from src.clients.telegram_client import TelegramPublisher
-from src.db.repositories import GamePublicationRepository, GameRepository, IGDBRepository
+from src.db.repositories import (
+    GamePublicationRepository, DiscountPublicationRepository, NewsPublicationRepository,
+    RedditPostPublicationRepository
+)
 from src.models.publication import PublishStatus
 from src.schemas import AllocatedPostsSchema
 from src.services.base_service import BaseService
@@ -12,14 +15,23 @@ class PublisherService(BaseService):
 
     def __init__(
         self, publication_repo: GamePublicationRepository, publisher: TelegramPublisher,
-        game_repo: GameRepository, igdb_repo: IGDBRepository
+        discount_publication_repo: DiscountPublicationRepository,
+        news_publication_repo: NewsPublicationRepository,
+        reddit_post_publication_repo: RedditPostPublicationRepository,
     ):
-        self._publication_repo = publication_repo
+        self._game_publication_repo = publication_repo
+        self._discount_publication_repo = discount_publication_repo
+        self._news_publication_repo = news_publication_repo
+        self._reddit_post_publication_repo = reddit_post_publication_repo
         self._publisher = publisher
-        self._games = game_repo
-        self._igdb = igdb_repo
         self._log = get_logger().bind(service="PublisherService")
         self._renderer = PostRenderer()
+        self._repo_mapper = {
+            "games": self._game_publication_repo,
+            "discounts": self._discount_publication_repo,
+            "news": self._news_publication_repo,
+            "reddit_posts": self._reddit_post_publication_repo,
+        }
 
     async def schedule_publications(self, posts: list[AllocatedPostsSchema]):
         """Публикует (или планирует) посты в соответствии с их временем"""
@@ -35,13 +47,16 @@ class PublisherService(BaseService):
 
     async def _handle_publication(self, record: AllocatedPostsSchema):
         """Планирует или сразу публикует пост"""
+        publication_repo = self._repo_mapper.get(record.category)
         try:
             text = self._renderer.render(record)
+            if not publication_repo:
+                raise ValueError(f"Unsupported publication type: {record.category}")
             msg_id = await self._publisher.publish_message(text, schedule_time=record.publish_time)
             if msg_id:
                 record.post.message_id = msg_id
                 record.post.status = PublishStatus.published
-                await self._repo.mark_published(record.post)
+                await publication_repo.mark_published(record.post)
                 self._log.info("publish_success", category=record.category, msg_id=msg_id)
                 return record
             else:
@@ -49,6 +64,6 @@ class PublisherService(BaseService):
         except Exception as e:
             record.post.status = PublishStatus.failed
             record.post.error = str(e)
-            await self._repo.mark_failed(record.post, error=str(e))
+            await publication_repo.mark_failed(record.post, error=str(e))
             self._log.error("publish_failed", category=record.category, error=str(e))
             return record

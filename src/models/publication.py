@@ -2,8 +2,10 @@ from __future__ import annotations
 from typing import Optional
 from datetime import datetime
 from enum import StrEnum
+from pydantic import Field
 from src.config import constants as C
 from src.models.base import BaseDBModel
+from src.models.game import PriceInfo, SteamExtendedInfo, PlatformsInfo
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -19,8 +21,27 @@ class GamePublicationRecord(BaseDBModel):
     status: PublishStatus = PublishStatus.pending
     message_id: Optional[str] = None
     attempt: int = 0
-    score_at_publish: Optional[float] = None
     error: Optional[str] = None
+    name: str
+    supported_languages: Optional[str] = None
+    short_description: Optional[str] = None
+    detailed_description: Optional[str] = None
+    release_date: Optional[datetime] = None
+    is_coming_soon: Optional[bool] = True
+    genres: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    developers: list[str] = Field(default_factory=list)
+    publishers: list[str] = Field(default_factory=list)
+    website: Optional[str] = None
+    header_image: Optional[str] = None
+    background: Optional[str] = None
+    screenshots: list[str] = Field(default_factory=list)
+    price: Optional[PriceInfo] = None
+    is_free: bool = False
+    ext_info: Optional[SteamExtendedInfo] = None
+    platforms: PlatformsInfo = Field(default_factory=PlatformsInfo)
+    recommendations: Optional[int] = None
+    categories: list[str] = Field(default_factory=list)
 
 
 class NewsPublicationRecord(BaseDBModel):
@@ -43,7 +64,13 @@ class NewsPublicationRecord(BaseDBModel):
 
 
 class DiscountPublication(BaseDBModel):
-    game_id: str
+    steam_appid: str
+    name: str
+    detailed_description: Optional[str] = None
+    short_description: Optional[str] = None
+    header_image: Optional[str] = None
+    tags: list[str] = Field(default_factory=list)
+    genres: list[str] = Field(default_factory=list)
     old_price: float
     new_price: float
     channel: str = C.DEFAULT_TELEGRAM_CHANNEL

@@ -12,6 +12,10 @@ from src.models import IGDBMeta, RedditPost, RankedRedditPost
 from src.models.publication import GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication, \
     RedditPostPublication
 from src.config import constants as C
+from src.schemas import GamePublicationRecordSchema, NewsPublicationSchema, RedditPostPublicationSchema, \
+    DiscountPublicationSchema
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -78,13 +82,13 @@ class GamePublicationRepository(BaseRepository[GamePublicationRecord]):
         super().__init__(collection_name, model, db)
 
 
-    async def mark_published(self, record: GamePublicationRecord) -> None:
+    async def mark_published(self, record: GamePublicationRecordSchema) -> None:
         data = record.model_dump()
         data["status"] = PublishStatus.published
         data["updated_at"] = datetime.now()
         await self.add_or_update(data, search_field="steam_appid")
 
-    async def mark_failed(self, record: GamePublicationRecord, error: str) -> None:
+    async def mark_failed(self, record: GamePublicationRecordSchema, error: str) -> None:
         data = record.model_dump()
         data["status"] = PublishStatus.failed
         data["error"] = error
@@ -124,13 +128,13 @@ class NewsPublicationRepository(BaseRepository[NewsPublicationRecord]):
     ) -> None:
         super().__init__(collection_name, model, db)
 
-    async def mark_published(self, record: NewsPublicationRecord) -> None:
+    async def mark_published(self, record: NewsPublicationSchema) -> None:
         data = record.model_dump()
         data["status"] = PublishStatus.published
         data["updated_at"] = datetime.now()
         await self.add_or_update(data, search_field="gid")
 
-    async def mark_failed(self, record: NewsPublicationRecord, error: str) -> None:
+    async def mark_failed(self, record: NewsPublicationSchema, error: str) -> None:
         data = record.model_dump()
         data["status"] = PublishStatus.failed
         data["error"] = error
@@ -153,13 +157,13 @@ class RedditPostPublicationRepository(BaseRepository[RedditPostPublication]):
     ) -> None:
         super().__init__(collection_name, model, db)
 
-    async def mark_published(self, record: RedditPostPublication) -> None:
+    async def mark_published(self, record: RedditPostPublicationSchema) -> None:
         data = record.model_dump()
         data["status"] = PublishStatus.published
         data["updated_at"] = datetime.now()
         await self.add_or_update(data, search_field="reddit_id")
 
-    async def mark_failed(self, record: RedditPostPublication, error: str) -> None:
+    async def mark_failed(self, record: RedditPostPublicationSchema, error: str) -> None:
         data = record.model_dump()
         data["status"] = PublishStatus.failed
         data["error"] = error
@@ -189,13 +193,13 @@ class DiscountPublicationRepository(BaseRepository[DiscountPublication]):
     ) -> None:
         super().__init__(collection_name, model, db)
 
-    async def mark_published(self, record: DiscountPublication) -> None:
+    async def mark_published(self, record: DiscountPublicationSchema) -> None:
         data = record.model_dump()
         data["status"] = PublishStatus.published
         data["updated_at"] = datetime.now()
         await self.add_or_update(data, search_field="steam_appid")
 
-    async def mark_failed(self, record: DiscountPublication, error: str) -> None:
+    async def mark_failed(self, record: DiscountPublicationSchema, error: str) -> None:
         data = record.model_dump()
         data["status"] = PublishStatus.failed
         data["error"] = error
