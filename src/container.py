@@ -1,4 +1,4 @@
-from openai import OpenAI
+from openai import AsyncOpenAI
 from src.clients import RedditClient
 from src.clients.igdb_client import AsyncIGDBClient
 from src.clients.steam_client import AsyncSteamClient
@@ -22,7 +22,7 @@ from src.services.rank_service.rankers.ranker import GameRanker
 
 # Managers
 cache = RedisCache()
-client = OpenAI(api_key=settings.OPEN_AI_KEY)
+client = AsyncOpenAI(api_key=settings.OPEN_AI_KEY)
 
 # Schedulers
 scheduler = AsyncScheduler()
@@ -89,8 +89,9 @@ rank_engine = RankEngineService(
 publisher = PublisherService(
     publication_repo=pub_repo,
     publisher=tg,
-    game_repo=games_repo,
-    igdb_repo=igdb_repo,
+    discount_publication_repo=discount_pub_repo,
+    news_publication_repo=news_pub_repo,
+    reddit_post_publication_repo=reddit_post_publication_repo,
 )
 
 

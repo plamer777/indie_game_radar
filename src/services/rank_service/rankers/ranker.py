@@ -229,7 +229,7 @@ class GameRanker:
         days = (datetime.now() - dt).days
         if days <= 0:
             return 1.0
-        return max(0.0, 1.0 - min(1.0, days / C.RECENCY_YEAR_DENOMINATOR))
+        return max(0.0, 1.0 - min(1.0, days / C.GAME_RANKER_RECENCY_DELTA_DAYS))
 
     def _price_attr_component(self, game: GameModel) -> float:
         if game.is_free:

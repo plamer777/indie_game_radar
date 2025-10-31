@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import List
 import numpy as np
 import re
-from openai import OpenAI
+from openai import AsyncOpenAI
 from src.models import RankedGameModel
 from src.models.reddit import RankedRedditPost
 from src.config import constants as C
@@ -14,7 +14,7 @@ class RedditPostFilter(BaseFilter):
 
     def __init__(
         self,
-        open_ai_client: OpenAI,
+        open_ai_client: AsyncOpenAI,
         time_window_hours: int = C.REDDIT_FILTER_TIME_WINDOW_HOURS,
         similarity_threshold: float = C.REDDIT_FILTER_SIMILARITY_THRESHOLD,
         embedding_model: str = C.REDDIT_FILTER_EMBEDDING_MODEL,

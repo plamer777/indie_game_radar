@@ -29,6 +29,7 @@ class Orchestrator:
         self._scheduler = scheduler
 
     async def start(self):
+        await self._run_cycle(top_n=C.DEFAULT_DAILY_POSTS)
         await self._start_harvester()
         await self._start_ranker()
 
@@ -93,7 +94,7 @@ class Orchestrator:
         filtered_news_to_publish = 0
         allocated = []
         for attempt in range(5):
-            filtered_games_to_publish = await self._rank_engine.filter_games(top_n)
+            # filtered_games_to_publish = await self._rank_engine.filter_games(top_n)
             filtered_news_to_publish = await self._rank_engine.filter_news(top_n)
             filtered_discounts = await self._rank_engine.filter_discounts(top_n)
             filtered_reddis_posts = await self._rank_engine.filter_reddit_posts(top_n)

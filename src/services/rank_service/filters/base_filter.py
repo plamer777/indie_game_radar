@@ -1,12 +1,12 @@
 import json
 import re
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 from src.models import RankedGameModel
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class BaseFilter:
-    def __init__(self, open_ai_client: OpenAI | None = None, gpt_model: str | None = None):
+    def __init__(self, open_ai_client: AsyncOpenAI | None = None, gpt_model: str | None = None):
         self._open_ai_client = open_ai_client
         self._gpt_model = gpt_model
 
@@ -23,7 +23,7 @@ class BaseFilter:
         genres = [g.lower() for g in game.genres or []]
         developers = [developer.lower() for developer in game.developers or []]
         publishers = [publisher.lower() for publisher in game.publishers or []]
-        price = game.price or 0
+        price = game.price.final if game.price else 0
 
         # 1. Прямое указание жанра
         if "indie" in genres or "indie" in tags or "indie" in description:

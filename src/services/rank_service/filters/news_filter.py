@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import List, Optional
 import numpy as np
-from openai import OpenAI
+from openai import AsyncOpenAI
 from src.models.game import SteamNewsItem, RankedGameModel
 from src.config import constants as C
 from src.services.rank_service.filters.base_filter import BaseFilter
@@ -12,7 +12,7 @@ class NewsFilter(BaseFilter):
 
     def __init__(
         self,
-        open_ai_client: OpenAI,
+        open_ai_client: AsyncOpenAI,
         time_window_hours: int = C.NEWS_FILTER_TIME_WINDOW_HOURS,
         allowed_feeds: Optional[List[str]] = None,
         blocked_feeds: Optional[List[str]] = None,
