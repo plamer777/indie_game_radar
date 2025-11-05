@@ -49,7 +49,7 @@ class RedditPostFilter(BaseFilter):
 
         # 1️⃣ Базовая фильтрация по времени и минимальным метрикам
         for p in posts:
-            if (now - p.created_at) > self.time_window:
+            if (now - p.created_utc) > self.time_window:
                 continue
             if p.last_score < C.REDDIT_FILTER_MIN_RANK_SCORE:
                 continue
@@ -66,7 +66,7 @@ class RedditPostFilter(BaseFilter):
             result.append(p)
 
         # 3️⃣ Сортировка: сначала по дате, потом по рейтингу
-        result.sort(key=lambda p: (p.created_at, p.rank_score), reverse=True)
+        result.sort(key=lambda p: (p.created_at, p.last_score), reverse=True)
         return result
 
     async def _filter_by_relevance(

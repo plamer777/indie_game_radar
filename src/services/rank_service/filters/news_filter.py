@@ -66,6 +66,8 @@ class NewsFilter(BaseFilter):
                 continue
             if item.feedlabel in self.blocked_feeds:
                 continue
+            if item.score < C.NEWS_FILTER_MIN_SCORE:
+                continue
             filtered.append(item)
 
         # 2️⃣ фильтр по релевантности (если есть query)
@@ -101,6 +103,8 @@ class NewsFilter(BaseFilter):
         return filtered
 
     async def _deduplicate(self, items: List[SteamNewsItem]) -> List[SteamNewsItem]:
+        if len(items) < 2:
+            return items
         unique = []
         seen_embeddings = []
         for item in items:

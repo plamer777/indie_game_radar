@@ -394,7 +394,8 @@ REDDIT_CLAMP_MAX = 1.0
 # ---------------------------------------------------------------------------------------------------------------------
 # News filter
 NEWS_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
-NEWS_FILTER_GAME_RATING_MIN = 0.4
+NEWS_FILTER_GAME_RATING_MIN = 0.3
+NEWS_FILTER_MIN_SCORE = 0.6
 NEWS_FILTER_LOW_VALUE_KEYWORDS = [
     "hotfix", "update", "patch", "version", "dev log", "minor changes",
     "bugfix", "roadmap", "announcement", "delay", "sale", "stream", "podcast"
@@ -436,6 +437,9 @@ Text: {text}
 PRICE_CAP_RELAX_SCORE_DELTA = 0.15  # allow higher price if score exceeds threshold by this delta
 PRICE_CAP_STRICT_FACTOR = 0.8       # strict cap factor when score is near threshold
 IGDB_FLOOR_RELAX_DELTA = 0.2        # relax IGDB floors if score exceeds threshold by this delta
+GAME_FILTER_RATING_MIN = 0.3
+GAME_FILTER_RELEASE_DATE_DELTA_DAYS = 180
+
 
 # Discount filter
 LOW_PRICE_THRESHOLD = 10.0        # игры дешевле $10
@@ -450,7 +454,7 @@ PREMIUM_PRICE_DROP_PERCENT = 5.0  # требуемая скидка для пр�
 DISCOUNT_FILTER_DAYS_LIMIT = 10
 DISCOUNT_PUBLICATION_DAYS_LIMIT = 30
 DISCOUNT_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
-DISCOUNT_FILTER_GAME_RATING_MIN = 0.4
+DISCOUNT_FILTER_GAME_RATING_MIN = 0.3
 # ---------------------------------------------------------------------------------------------------------------------
 # Reddit Post filter
 REDDIT_FILTER_BAD_FLAIRS = [
@@ -459,11 +463,11 @@ REDDIT_FILTER_BAD_FLAIRS = [
 ]
 
 REDDIT_FILTER_MIN_CONTENT_LENGTH = 80          # минимальная длина текста поста
-REDDIT_FILTER_MIN_RANK_SCORE = 0.7             # минимальный рейтинг для публикации
+REDDIT_FILTER_MIN_RANK_SCORE = 0.5             # минимальный рейтинг для публикации
 REDDIT_FILTER_SIMILARITY_THRESHOLD = 0.65      # минимальная семантическая близость к игре
-REDDIT_FILTER_TIME_WINDOW_HOURS = 96
-REDDIT_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
-REDDIT_FILTER_GAME_RATING_MIN = 0.4
+REDDIT_FILTER_TIME_WINDOW_HOURS = 168
+REDDIT_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 360
+REDDIT_FILTER_GAME_RATING_MIN = 0.3
 
 REDDIT_FILTER_GPT_MODEL = 'gpt-4o-mini'
 REDDIT_FILTER_EMBEDDING_MODEL = 'text-embedding-3-small'

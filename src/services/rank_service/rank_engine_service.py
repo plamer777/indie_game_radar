@@ -112,9 +112,18 @@ class RankEngineService(BaseService):
     async def filter_games(self, top_n: int) -> list[GamePublicationRecordSchema]:
         cycle_log = self._log.bind(method="filter_games")
         cycle_log.info("started")
+        now = datetime.now()
         scored_games = await self._ranked_games_repo.get_all(
-            {'last_score': {'$ne': None}}, sort_by={'last_score': -1}, generator_mode=True
+            {
+                'last_score': {'$gte': C.GAME_FILTER_RATING_MIN},
+                '$or': [
+                    {"release_date": {"$gte": now - timedelta(days=C.GAME_FILTER_RELEASE_DATE_DELTA_DAYS)}},
+                    {"release_date": None}
+                ]
+            },
+            sort_by={'last_score': -1}, generator_mode=True
         )
+
         unpublished = []
         async for game in scored_games:
             try:
@@ -239,7 +248,7 @@ class RankEngineService(BaseService):
         unpublished = []
         async for game in scored_games:
             reddit_posts = await self._ranked_reddit_posts_repo.get_all(
-                {'steam_appid': game.steam_appid}, limit=2
+                {'steam_appid': game.steam_appid}, limit=1, sort_by={'created_utc': -1}
             )
             filtered = await self._reddit_post_filter.filter_posts(reddit_posts, game)
             for post in filtered:
