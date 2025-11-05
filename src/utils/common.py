@@ -1,5 +1,6 @@
 import asyncio
 import html
+import json
 import logging
 import re
 from functools import wraps
@@ -121,3 +122,14 @@ def clean_html(html_text: Optional[str]) -> str:
     text = html.unescape(text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
+
+
+def parse_json(text: str) -> dict:
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        return {}
+
+    try:
+        return json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return {}

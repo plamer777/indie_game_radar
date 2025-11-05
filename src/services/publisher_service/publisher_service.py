@@ -6,6 +6,7 @@ from src.db.repositories import (
 from src.models.publication import PublishStatus
 from src.schemas import AllocatedPostsSchema
 from src.services.base_service import BaseService
+from src.services.publisher_service.editors import EditorialRefiner
 from src.services.publisher_service.renderers.tg_post_renderer import PostRenderer
 from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
@@ -18,6 +19,7 @@ class PublisherService(BaseService):
         discount_publication_repo: DiscountPublicationRepository,
         news_publication_repo: NewsPublicationRepository,
         reddit_post_publication_repo: RedditPostPublicationRepository,
+        editorial_refiner: EditorialRefiner
     ):
         self._game_publication_repo = publication_repo
         self._discount_publication_repo = discount_publication_repo
@@ -26,6 +28,7 @@ class PublisherService(BaseService):
         self._publisher = publisher
         self._log = get_logger().bind(service="PublisherService")
         self._renderer = PostRenderer()
+        self._editor = editorial_refiner
         self._repo_mapper = {
             "games": self._game_publication_repo,
             "discounts": self._discount_publication_repo,
@@ -49,6 +52,16 @@ class PublisherService(BaseService):
         """Планирует или сразу публикует пост"""
         publication_repo = self._repo_mapper.get(record.category)
         try:
+            if record.category == 'news':
+                edited = await self._editor.refine(record.post.title, record.post.contents, 'news')
+                record.post.title = edited.get('title')
+                record.post.contents = edited.get('content')
+            elif record.category == 'reddit_posts':
+                post_type = f'reddit_post_{record.post.type}'
+                edited = await self._editor.refine(record.post.title, record.post.selftext, post_type)
+                record.post.title = edited.get('title')
+                record.post.selftext = edited.get('content')
+
             text = self._renderer.render(record)
             if not publication_repo:
                 raise ValueError(f"Unsupported publication type: {record.category}")

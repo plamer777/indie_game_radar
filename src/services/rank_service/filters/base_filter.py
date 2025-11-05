@@ -2,6 +2,9 @@ import json
 import re
 from openai import OpenAI, AsyncOpenAI
 from src.models import RankedGameModel
+from src.utils.common import parse_json
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -67,13 +70,8 @@ class BaseFilter:
 
             raw = response.choices[0].message.content.strip()
             # Извлекаем JSON даже если модель добавила текст вокруг
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
-            if not match:
-                continue
-
-            try:
-                return json.loads(match.group(0))
-            except json.JSONDecodeError:
-                return {"suitable": False, "confidence": 0.0, "reason": "Invalid JSON"}
+            parsed = parse_json(raw)
+            if parsed:
+                return parsed
 
         return {"suitable": False, "confidence": 0.0, "reason": "No JSON found"}

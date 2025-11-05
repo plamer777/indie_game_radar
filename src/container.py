@@ -12,6 +12,7 @@ from src.orchestrators.core_orchestrator import Orchestrator
 from src.scheduler.scheduler import AsyncScheduler
 from src.services.data_service import APIHarvesterService
 from src.services.publisher_service import PublisherService
+from src.services.publisher_service.editors import EditorialRefiner
 from src.services.rank_service.filters import DiscountFilter, RedditPostFilter, RedditDevPostFilter
 from src.services.rank_service.filters.filter import GameFilter
 from src.services.rank_service.filters.news_filter import NewsFilter
@@ -41,7 +42,7 @@ reddit_post_filter = RedditPostFilter(client)
 reddit_post_ranker = RedditPostRanker()
 reddit_dev_post_ranker = RedditDevPostRanker()
 reddit_dev_post_filter = RedditDevPostFilter(client)
-
+editorial_refiner = EditorialRefiner(client)
 
 # Repositories
 games_repo = GameRepository()
@@ -96,6 +97,7 @@ publisher = PublisherService(
     discount_publication_repo=discount_pub_repo,
     news_publication_repo=news_pub_repo,
     reddit_post_publication_repo=reddit_post_publication_repo,
+    editorial_refiner=editorial_refiner
 )
 
 

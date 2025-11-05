@@ -96,10 +96,15 @@ class Orchestrator:
         reddis_posts_to_publish = 0
         allocated = []
         for attempt in range(5):
-            # filtered_games_to_publish = await self._rank_engine.filter_games(top_n)
-            # filtered_news_to_publish = await self._rank_engine.filter_news(top_n)
-            # filtered_discounts = await self._rank_engine.filter_discounts(top_n)
+            filtered_games_to_publish = await self._rank_engine.filter_games(top_n)
+            filtered_news_to_publish = await self._rank_engine.filter_news(top_n)
+            filtered_discounts = await self._rank_engine.filter_discounts(top_n)
             filtered_reddis_posts = await self._rank_engine.filter_reddit_posts(top_n)
+            filtered_game_dev_reddit_posts = await self._rank_engine.filter_game_dev_reddit_posts(
+                top_n - len(filtered_reddis_posts)
+            )
+
+            filtered_reddis_posts += filtered_game_dev_reddit_posts
             games_to_publish = len(filtered_games_to_publish)
             news_to_publish = len(filtered_news_to_publish)
             discounts_to_publish = len(filtered_discounts)

@@ -12,7 +12,7 @@ REDDIT_POST_TEMPLATES = [
 {{ extract_snippet }}
 <br>
 {% elif selftext %}
-{{ selftext[:1000] }}...
+{{ selftext[:4000] }}...
 <br>
 {% endif %}
 
@@ -35,7 +35,7 @@ REDDIT_POST_TEMPLATES = [
 <img src="{{ image_url }}">
 <br>
 {% endif %}
-> {% if extract_snippet %}{{ extract_snippet }}{% elif selftext %}{{ selftext[:1000] }}...{% endif %}
+> {% if extract_snippet %}{{ extract_snippet }}{% elif selftext %}{{ selftext[:4000] }}...{% endif %}
 <br>
 🧩 Shared by {{ author  }} on r/{{ subreddit }}
 <br>  
@@ -56,7 +56,7 @@ REDDIT_POST_TEMPLATES = [
 {{ extract_snippet }}
 <br>
 {% elif selftext %}
-{{ selftext[:1000] }}...
+{{ selftext[:4000] }}...
 <br>
 {% endif %}
 

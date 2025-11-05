@@ -266,6 +266,8 @@ class RankEngineService(BaseService):
         cycle_log.info("started")
 
         unpublished = []
+        if top_n <= 0:
+            return unpublished
 
         reddit_posts = await self._ranked_reddit_posts_repo.get_all(
             {'type': 'game_dev_story', 'last_score': {'$gte': C.REDDIT_GAME_DEV_FILTER_RATING_MIN}},

@@ -10,9 +10,9 @@ from src.utils.logging import get_logger
 async def app_main() -> None:
     log = get_logger().bind(app="igr")
     log.info("app_start")
-    client = RedditClient()
-    posts = await client.fetch_meta_indie_posts()
-    print(posts)
+    # client = RedditClient()
+    # posts = await client.fetch_meta_indie_posts()
+    # print(posts)
     # posts = await client.search_posts_for_game(
     #     "Dying Light", steam_appid=239140,
     #     limit=30,
@@ -21,7 +21,7 @@ async def app_main() -> None:
     # )
     # print(posts)
 
-    # await orchestrator.start()
+    await orchestrator.start()
 
     log.info("app_stop")
 
