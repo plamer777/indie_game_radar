@@ -29,7 +29,7 @@ class Orchestrator:
         self._scheduler = scheduler
 
     async def start(self):
-        await self._run_cycle(top_n=C.DEFAULT_DAILY_POSTS)
+        # await self._run_cycle(top_n=C.DEFAULT_DAILY_POSTS)
         await self._start_harvester()
         await self._start_ranker()
 
@@ -90,14 +90,20 @@ class Orchestrator:
         top_n = top_n or C.DEFAULT_DAILY_POSTS
         cycle_log = self._log.bind(top_n=top_n)
         cycle_log.info("cycle_start")
-        filtered_games_to_publish = 0
-        filtered_news_to_publish = 0
+        games_to_publish = 0
+        news_to_publish = 0
+        discounts_to_publish = 0
+        reddis_posts_to_publish = 0
         allocated = []
         for attempt in range(5):
             # filtered_games_to_publish = await self._rank_engine.filter_games(top_n)
-            filtered_news_to_publish = await self._rank_engine.filter_news(top_n)
-            filtered_discounts = await self._rank_engine.filter_discounts(top_n)
+            # filtered_news_to_publish = await self._rank_engine.filter_news(top_n)
+            # filtered_discounts = await self._rank_engine.filter_discounts(top_n)
             filtered_reddis_posts = await self._rank_engine.filter_reddit_posts(top_n)
+            games_to_publish = len(filtered_games_to_publish)
+            news_to_publish = len(filtered_news_to_publish)
+            discounts_to_publish = len(filtered_discounts)
+            reddis_posts_to_publish = len(filtered_reddis_posts)
             content_strategy = ContentAllocationStrategy(
                 games=filtered_games_to_publish, news=filtered_news_to_publish, discounts=filtered_discounts,
                 reddit_posts=filtered_reddis_posts
@@ -110,9 +116,10 @@ class Orchestrator:
 
         else:
             cycle_log.warning(
-                "not_enough_content_to_publish", filtered_games_to_publish=filtered_games_to_publish,
-                filtered_news_to_publish=filtered_news_to_publish,
-                total_content=filtered_games_to_publish + filtered_news_to_publish
+                "not_enough_content_to_publish", filtered_games_to_publish=games_to_publish,
+                filtered_news_to_publish=news_to_publish, filtered_discounts=discounts_to_publish,
+                filtered_reddis_posts=reddis_posts_to_publish,
+                total_content=len(allocated)
             )
 
         # f) Публикации
