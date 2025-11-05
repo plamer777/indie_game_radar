@@ -48,8 +48,9 @@ class APIHarvesterService(BaseService):
 
         # a) периодически обновляем список app
         await self.fetch_steam_apps()
-
-        # b) выгружаем игры партиями
+        # b) выгружаем свежие посты по ключевым запросам гейм дева
+        await self.fetch_game_dev_reddit_posts()
+        # c) выгружаем игры партиями\
         await self.fetch_steam_games(until)
 
         cycle_log.info("cycle_complete")
@@ -140,6 +141,16 @@ class APIHarvesterService(BaseService):
                 steam_appid=game.steam_appid
             )
             [setattr(post, 'game_name', game.name) for post in reddit_posts]
+            await self._reddit_posts.add_or_update(reddit_posts, search_field="reddit_id")
+
+            return reddit_posts
+        except Exception as e:
+            self._log.error("fetch_reddit_posts_by_game", exc_info=True, error=e)
+            return []
+
+    async def fetch_game_dev_reddit_posts(self) -> list[RedditPostSchema]:
+        try:
+            reddit_posts = await self._reddit_client.fetch_meta_indie_posts()
             await self._reddit_posts.add_or_update(reddit_posts, search_field="reddit_id")
 
             return reddit_posts

@@ -10,7 +10,7 @@ class RedditPost(BaseDBModel):
     fullname: Optional[str] = Field(None, description="Полное имя (например t3_1oc22gq)")
     steam_appid: Optional[int] = Field(None, description="Steam AppID, если удаётся извлечь из ссылки")
     game_name: Optional[str] = Field(None, description="Название игры, если извлечено вручную или via сопоставление")
-
+    type: str | None = None
     title: str = Field(..., description="Заголовок поста")
     selftext: Optional[str] = Field(None, description="Текст поста (для self-post)")
     selftext_html: Optional[str] = Field(None, description="HTML версия текста, если доступна")

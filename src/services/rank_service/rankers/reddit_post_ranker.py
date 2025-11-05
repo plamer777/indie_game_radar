@@ -19,7 +19,7 @@ class RedditPostRanker:
         self.game_rank_lookup = game_rank_lookup or (lambda gid: 0.0)
 
     def _length_penalty(self, text: str) -> float:
-        min_len = C.MIN_NEWS_CONTENT_LENGTH
+        min_len = C.REDDIT_MIN_CONTENT_LENGTH
         if len(text) < min_len:
             return len(text) / min_len
         return 1.0
@@ -88,12 +88,12 @@ class RedditPostRanker:
         positive = ups * ratio
         negative = downs * (1.0 - ratio)
         raw = (
-            positive * 1.0
-            - negative * 0.5
-            + comments * 1.5
-            + awards * 10.0
-            + crossposts * 2.0
-            + media * 15.0
+            positive * C.REDDIT_UPVOTE_WEIGHT
+            - negative * C.REDDIT_DOWNVOTE_WEIGHT
+            + comments * C.REDDIT_COMMENT_WEIGHT
+            + awards * C.REDDIT_AWARD_WEIGHT
+            + crossposts * C.REDDIT_CROSSPOST_WEIGHT
+            + media * C.REDDIT_MEDIA_WEIGHT
         )
 
         # логарифмическое сглаживание для ограничения экстремальных значений

@@ -105,7 +105,20 @@ GAMEDEV_SUBREDDITS = [
 ]
 
 REDDIT_STEAM_URL_RE = re.compile(r"https?://store\.steampowered\.com/app/(\d+)", re.IGNORECASE)
-DEFAULT_POSTS_LIMIT = 20
+DEFAULT_GAME_RELATED_POSTS_LIMIT = 20
+DEFAULT_GAME_DEV_STORY_POSTS_LIMIT = 100
+INDIE_DEV_QUERIES = [
+    "indie game development",
+    "how I made my indie game",
+    "indie dev story",
+    "behind the scenes game dev",
+    "postmortem indie game",
+    "how we built our game",
+    "first indie game release",
+    "what I learned making a game",
+    "lessons from game development",
+    "indie game marketing",
+]
 # ---------------------------------------------------------------------------------------------------------------------
 # Orchestrator
 ORCH_FETCH_GAME_CONCURRENCY = 10
@@ -281,8 +294,9 @@ REDDIT_RECENCY_BOOST_DECAY_DAYS = 7     # за сколько дней бону�
 # ==========================================================
 
 REDDIT_UPVOTE_WEIGHT = 1.0              # базовый вес апвоутов
-REDDIT_DOWNVOTE_WEIGHT = -0.5           # штраф за дизлайки
+REDDIT_DOWNVOTE_WEIGHT = 0.5           # штраф за дизлайки
 REDDIT_COMMENT_WEIGHT = 1.5             # вес комментариев
+REDDIT_GAME_DEV_STORY_COMMENT_WEIGHT = 2.0            # вес комментариев
 REDDIT_AWARD_WEIGHT = 10.0              # вес за каждую Reddit-награду
 REDDIT_CROSSPOST_WEIGHT = 2.0           # вес за кросспосты (вирусность)
 REDDIT_MEDIA_WEIGHT = 15.0              # бонус за наличие изображения или видео
@@ -292,7 +306,8 @@ REDDIT_MEDIA_WEIGHT = 15.0              # бонус за наличие изо�
 # ==========================================================
 
 REDDIT_MAX_CONTENT_LENGTH = 3000        # нормализация длины текста
-REDDIT_MIN_CONTENT_LENGTH = 150         # минимальная длина для нормального скоринга
+REDDIT_MIN_CONTENT_LENGTH = 300         # минимальная длина для нормального скоринга
+REDDIT_GAME_DEV_STORY_MIN_CONTENT_LENGTH = 1000         # минимальная длина для нормального скоринга
 REDDIT_MEDIA_BONUS = 0.15               # добавка к content_richness при наличии медиа
 REDDIT_MEDIA_INFO_BONUS = 0.10          # добавка к info_value за медиа
 REDDIT_TECHNICAL_POST_MULTIPLIER = 1.2  # бонус для тех. контента (patch notes и т.п.)
@@ -301,6 +316,16 @@ REDDIT_GAME_QUALITY_REDUCTION_FACTOR = 0.8  # снижение влияния ga
 REDDIT_GAME_QUALITY_TECH_MULTIPLIER = 1.1   # усиление game_quality при техничных постах
 REDDIT_INFO_VALUE_GAME_QUALITY_THRESHOLD = 0.4  # порог низкого инфо-контента
 
+REDDIT_DEV_WEIGHT_FRESHNESS = 0.3
+REDDIT_DEV_WEIGHT_SOURCE = 0.25
+REDDIT_DEV_WEIGHT_ENGAGEMENT = 0.25
+REDDIT_DEV_WEIGHT_STORYTELLING = 0.2
+
+REDDIT_DEV_TECH_PENALTY = 0.6
+REDDIT_DEV_PROMO_PENALTY = 0.5
+
+REDDIT_DEV_LENGTH_BASE = 0.7
+REDDIT_DEV_LENGTH_SCALE = 0.3
 # ==========================================================
 # 🧩 Subreddit / источник
 # ==========================================================
@@ -319,6 +344,13 @@ REDDIT_TECH_LIST_DENSITY_THRESHOLD = 0.5
 # ==========================================================
 # 🧠 Ключевые слова (поиск смысла и типа контента)
 # ==========================================================
+
+REDDIT_GAME_DEV_STORY_PATTERNS = [
+    "how i made", "what i learned", "lessons learned", "behind the scenes",
+    "making of", "our journey", "postmortem", "we decided to", "we built",
+    "my first game", "from idea to", "what went wrong", "our experience",
+    "indie dev story", "we learned", "mistakes", "success", "failure"
+]
 
 REDDIT_DEV_FLAIR_KEYWORDS = [
     "dev", "developer", "progress", "update", "devlog", "patch", "release", "prototype"
@@ -460,6 +492,41 @@ Respond **only** in strict JSON format:
 """
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# Reddit Dev Post Filter
+REDDIT_DEV_FILTER_TIME_WINDOW_DAYS = 14
+REDDIT_DEV_FILTER_MIN_RANK_SCORE = 0.25
+REDDIT_DEV_FILTER_MIN_CONTENT_LENGTH = 400
+REDDIT_DEV_FILTER_SIMILARITY_THRESHOLD = 0.75
+REDDIT_DEV_FILTER_EMBEDDING_MODEL = "text-embedding-3-small"
+REDDIT_DEV_FILTER_GPT_MODEL = "gpt-4o-mini"
+REDDIT_DEV_FILTER_PROMPT_TEMPLATE = """
+You are an assistant helping to select Reddit posts for an indie game discovery channel.
+
+Your goal is to find posts that share interesting developer experiences, 
+behind-the-scenes stories, lessons learned, or creative insights about game development.
+
+Reject posts that are:
+- Patch notes, release updates, or changelogs
+- Hiring or collaboration requests
+- Promotions, ads, or Kickstarter campaigns
+- Posts focused on a specific product page or announcement
+
+Analyze the following post and respond **only** in strict JSON format:
+{{
+  "suitable": true|false,
+  "confidence": 0.0–1.0,
+  "reason": "Short explanation"
+}}
+
+=== Post ===
+Title: {title}
+
+Text:
+{text}
+"""
+REDDIT_DEV_FILTER_BAD_FLAIRS = ["update", "patch", "bugfix", "hiring", "release", "promo", "kickstarter"]
+REDDIT_GAME_DEV_FILTER_RATING_MIN = 0.6
 # ---------------------------------------------------------------------------------------------------------------------
 # Publication
 DEFAULT_DAILY_POSTS = 6

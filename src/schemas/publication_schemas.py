@@ -2,6 +2,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Union
 from pydantic import Field
+from typing_extensions import Literal
+
 from src.config import constants as C
 from src.models.game import PriceInfo, SteamExtendedInfo, PlatformsInfo
 from src.models.publication import PublishStatus
@@ -86,6 +88,8 @@ class RedditPostPublicationSchema(BaseSchema):
     attempt: int = 0
     error: Optional[str] = None
     title: str
+    steam_appid: Optional[int] = None
+    type: Literal['game_related', 'game_dev_story']
     selftext: Optional[str] = None
     selftext_html: Optional[str] = None
     url: Optional[str] = None

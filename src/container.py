@@ -12,11 +12,11 @@ from src.orchestrators.core_orchestrator import Orchestrator
 from src.scheduler.scheduler import AsyncScheduler
 from src.services.data_service import APIHarvesterService
 from src.services.publisher_service import PublisherService
-from src.services.rank_service.filters import DiscountFilter, RedditPostFilter
+from src.services.rank_service.filters import DiscountFilter, RedditPostFilter, RedditDevPostFilter
 from src.services.rank_service.filters.filter import GameFilter
 from src.services.rank_service.filters.news_filter import NewsFilter
 from src.services.rank_service.rank_engine_service import RankEngineService
-from src.services.rank_service.rankers import NewsRanker, RedditPostRanker
+from src.services.rank_service.rankers import NewsRanker, RedditPostRanker, RedditDevPostRanker
 from src.services.rank_service.rankers.ranker import GameRanker
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -39,6 +39,8 @@ news_filter = NewsFilter(client)
 discount_filter = DiscountFilter()
 reddit_post_filter = RedditPostFilter(client)
 reddit_post_ranker = RedditPostRanker()
+reddit_dev_post_ranker = RedditDevPostRanker()
+reddit_dev_post_filter = RedditDevPostFilter(client)
 
 
 # Repositories
@@ -83,7 +85,9 @@ rank_engine = RankEngineService(
     reddit_post_repo=reddit_post_repo,
     ranked_reddit_posts_repo=ranked_reddit_posts_repo,
     reddit_post_filter=reddit_post_filter,
-    reddit_post_publication_repo=reddit_post_publication_repo
+    reddit_post_publication_repo=reddit_post_publication_repo,
+    reddit_dev_post_ranker=reddit_dev_post_ranker,
+    reddit_dev_post_filter=reddit_dev_post_filter,
 )
 
 publisher = PublisherService(

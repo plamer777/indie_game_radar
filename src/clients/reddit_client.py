@@ -1,11 +1,11 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Literal
 from asyncpraw import Reddit
 from asyncpraw.models import Submission
-from src.config.constants import REDDIT_STEAM_URL_RE, GAMEDEV_SUBREDDITS, DEFAULT_POSTS_LIMIT
 from src.config.settings import settings
 from src.schemas import RedditPostSchema
 from src.utils.logging import get_logger
+from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -32,11 +32,28 @@ class RedditClient:
             )
         return self._reddit
 
+    async def fetch_meta_indie_posts(
+        self, queries: list[str] = C.INDIE_DEV_QUERIES, limit: int = C.DEFAULT_GAME_DEV_STORY_POSTS_LIMIT,
+        subreddit_list: Optional[List[str]] = C.GAMEDEV_SUBREDDITS,
+    )  -> list[RedditPostSchema]:
+        query = " OR ".join(queries)
+
+        subreddits = "+".join(subreddit_list)
+        self._ensure_client()
+        subreddit_obj = await self._reddit.subreddit(subreddits)
+
+        posts = []
+        async for submission in subreddit_obj.search(query, sort="new", limit=limit):
+            post_model = await self._map_submission(submission, post_type='game_dev_story')
+            posts.extend(post_model)
+
+        return posts
+
     async def search_posts_for_game(
         self,
         steam_appid: int,
-        subreddit_list: Optional[List[str]] = GAMEDEV_SUBREDDITS,
-        limit: int = DEFAULT_POSTS_LIMIT
+        subreddit_list: Optional[List[str]] = C.GAMEDEV_SUBREDDITS,
+        limit: int = C.DEFAULT_GAME_RELATED_POSTS_LIMIT
     ) -> List[RedditPostSchema]:
         """
         Ищет посты, связанные с игрой: по названию и/или по Steam AppID.
@@ -65,11 +82,12 @@ class RedditClient:
     async def _map_submission(
         self,
         submission: Submission,
-        steam_appid: Optional[int]
+        steam_appid: Optional[int] = None,
+        post_type: Literal['game_related', 'game_dev_story'] = 'game_related'
     ) -> RedditPostSchema:
         # извлечение steam_appid из URL или текста, если не передан
         extracted_appid: Optional[int] = steam_appid
-        match = REDDIT_STEAM_URL_RE.search(submission.url or "")
+        match = C.REDDIT_STEAM_URL_RE.search(submission.url or "")
         if match:
             try:
                 extracted_appid = int(match.group(1))
@@ -110,6 +128,7 @@ class RedditClient:
         model = RedditPostSchema(
             reddit_id=submission.id,
             fullname=submission.name,
+            type=post_type,
             steam_appid=extracted_appid,
             title=submission.title,
             selftext=submission.selftext or None,
