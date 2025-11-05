@@ -33,21 +33,27 @@ class RedditClient:
         return self._reddit
 
     async def fetch_meta_indie_posts(
-        self, queries: list[str] = C.INDIE_DEV_QUERIES, limit: int = C.DEFAULT_GAME_DEV_STORY_POSTS_LIMIT,
+        self,
+        queries: list[str] = C.GAMEDEV_DISCUSSION_QUERIES,
+        limit: int = C.DEFAULT_GAME_DEV_STORY_POSTS_LIMIT,
         subreddit_list: Optional[List[str]] = C.GAMEDEV_SUBREDDITS,
-    )  -> list[RedditPostSchema]:
-        query = " OR ".join(queries)
-
-        subreddits = "+".join(subreddit_list)
+    ) -> list[RedditPostSchema]:
         self._ensure_client()
+        posts = []
+        subreddits = "+".join(subreddit_list)
         subreddit_obj = await self._reddit.subreddit(subreddits)
 
-        posts = []
-        async for submission in subreddit_obj.search(query, sort="new", limit=limit):
-            post_model = await self._map_submission(submission, post_type='game_dev_story')
-            posts.extend(post_model)
+        for q in queries:
+            try:
+                async for submission in subreddit_obj.search(q, sort="new", limit=limit // len(queries)):
+                    post_model = await self._map_submission(submission, post_type="game_dev_story")
+                    posts.append(post_model)
+            except Exception as e:
+                print(f"⚠️ Query '{q}' failed: {e}")
 
-        return posts
+        # убираем дубликаты по id
+        unique_posts = {p.id: p for p in posts}.values()
+        return list(unique_posts)
 
     async def search_posts_for_game(
         self,
