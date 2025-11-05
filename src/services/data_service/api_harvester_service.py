@@ -149,11 +149,13 @@ class APIHarvesterService(BaseService):
             return []
 
     async def fetch_game_dev_reddit_posts(self) -> list[RedditPostSchema]:
+        cycle_log = self._log.bind(method="fetch_steam_games")
+        cycle_log.info("start updating game dev reddit posts")
         try:
             reddit_posts = await self._reddit_client.fetch_meta_indie_posts()
             await self._reddit_posts.add_or_update(reddit_posts, search_field="reddit_id")
 
             return reddit_posts
         except Exception as e:
-            self._log.error("fetch_reddit_posts_by_game", exc_info=True, error=e)
+            cycle_log.error("fetch_game_dev_reddit_posts", exc_info=True, error=e)
             return []
