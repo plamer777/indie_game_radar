@@ -107,17 +107,54 @@ GAMEDEV_SUBREDDITS = [
 REDDIT_STEAM_URL_RE = re.compile(r"https?://store\.steampowered\.com/app/(\d+)", re.IGNORECASE)
 DEFAULT_GAME_RELATED_POSTS_LIMIT = 20
 DEFAULT_GAME_DEV_STORY_POSTS_LIMIT = 100
-INDIE_DEV_QUERIES = [
-    "indie game development",
-    "how I made my indie game",
-    "indie dev story",
+GAMEDEV_DISCUSSION_QUERIES = [
+    # 🎮 Общие обсуждения разработки игр
+    "game development",
+    "indie dev",
+    "indie game dev",
+    "indie developer",
+    "making a game",
+    "how to make a game",
+    "developing my game",
+    "working on my game",
+    "building a game",
+    "my first game project",
+    "solo game developer",
+    "learning game dev",
+
+    # 💡 Опыт, истории, фейлы, инсайты
+    "my game dev journey",
+    "what I learned from making a game",
+    "mistakes I made developing a game",
+    "things I wish I knew about game dev",
+    "lessons from indie development",
+    "my first Steam release",
+    "postmortem game dev",
     "behind the scenes game dev",
-    "postmortem indie game",
-    "how we built our game",
-    "first indie game release",
-    "what I learned making a game",
-    "lessons from game development",
+    "indie game story",
+    "how I made my first game",
+    "success story game dev",
+    "failed game project",
+    "indie dev experience",
+
+    # 🧠 Технические / производственные темы
+    "game engine choice",
+    "unity vs unreal",
+    "game optimization tips",
+    "level design lessons",
+    "learning Godot",
+    "making pixel art game",
+    "creating game mechanics",
+
+    # 💰 Маркетинг, релизы, сообщество
     "indie game marketing",
+    "promoting my game",
+    "launching on Steam",
+    "getting wishlists",
+    "finding players for my game",
+    "getting feedback for my game",
+    "Steam launch lessons",
+    "indie dev tips",
 ]
 # ---------------------------------------------------------------------------------------------------------------------
 # Orchestrator
