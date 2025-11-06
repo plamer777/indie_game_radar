@@ -2,11 +2,11 @@ from __future__ import annotations
 import httpx
 import asyncio
 from typing import Any, Optional
+from src.clients.base import BaseAPIClient
 from src.config.constants import TOO_MANY_REQUESTS_DELAY
 from src.exceptions.api_exceptions import TooManyRequestsException
 from src.schemas.igdb_schemas import IGDBMetaSchema
 from src.utils.common import repeat_execution_async
-from src.utils.retry import RetryPolicy
 from src.clients.shared_dependencies.rate_limiter import SemaphoreLimiter
 from src.managers.cache import RedisCache
 from src.utils.logging import get_logger
@@ -16,20 +16,15 @@ from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class AsyncIGDBClient:
+class AsyncIGDBClient(BaseAPIClient):
     def __init__(
         self, cache: RedisCache, client_id: str = settings.IGDB_CLIENT_ID,
         client_secret: str = settings.IGDB_CLIENT_SECRET,
         base_url: str = settings.IGDB_BASE_URL,
         oauth_url: str = settings.TWITCH_OAUTH_URL,
     ) -> None:
+        super().__init__()
         self._client = httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS)
-        self._retry = RetryPolicy(
-            retries=settings.HTTP_MAX_RETRIES,
-            base_delay=settings.HTTP_RETRY_BACKOFF_BASE,
-            max_delay=settings.HTTP_RETRY_BACKOFF_MAX,
-            retry_exceptions=(httpx.HTTPError, asyncio.TimeoutError),
-        )
         self._limiter = SemaphoreLimiter(settings.IGDB_MAX_CONCURRENCY)
         self._cache = cache
         self._log = get_logger().bind(client="igdb")
@@ -42,24 +37,26 @@ class AsyncIGDBClient:
     async def close(self) -> None:
         await self._client.aclose()
 
+    @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def _ensure_token(self) -> str:
         if self._access_token:
             return self._access_token
+        resp = await self._client.post(
+            settings.TWITCH_OAUTH_URL,
+            data={
+                "client_id": self._client_id,
+                "client_secret": self._client_secret,
+                "grant_type": "client_credentials",
+            },
+        )
+        if resp.status_code == httpx.codes.TOO_MANY_REQUESTS:
+            self._delay += 0.1
+            raise TooManyRequestsException("Too many requests")
 
-        async def _do():
-            resp = await self._client.post(
-                settings.TWITCH_OAUTH_URL,
-                data={
-                    "client_id": self._client_id,
-                    "client_secret": self._client_secret,
-                    "grant_type": "client_credentials",
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            return data.get("access_token")
+        resp.raise_for_status()
+        data = resp.json()
+        token = data.get("access_token")
 
-        token = await self._retry.run(_do)
         self._access_token = token
         return token
 
@@ -72,27 +69,27 @@ class AsyncIGDBClient:
         }
 
     @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
-    async def _igdb_post(self, endpoint: str, query: str) -> list[dict[str, Any]]:
+    async def _igdb_post(self, endpoint: str, query: str) -> list[dict[str, Any]] | None:
         url = f"{settings.IGDB_BASE_URL}/{endpoint}"
         headers = await self._get_headers()
 
         async with self._limiter:
-            async def _do():
+            await asyncio.sleep(self._delay)
+            res = await self._client.post(url, content=query, headers=headers)
+            if res.status_code == httpx.codes.UNAUTHORIZED:
+                # token expired, refresh once
+                self._access_token = None
+                _ = await self._ensure_token()
+                headers["Authorization"] = f"Bearer {self._access_token}"
                 res = await self._client.post(url, content=query, headers=headers)
-                if res.status_code == httpx.codes.UNAUTHORIZED:
-                    # token expired, refresh once
-                    self._access_token = None
-                    _ = await self._ensure_token()
-                    headers["Authorization"] = f"Bearer {self._access_token}"
-                    res = await self._client.post(url, content=query, headers=headers)
-                elif res.status_code == httpx.codes.TOO_MANY_REQUESTS:
-                    raise TooManyRequestsException("Too many requests")
-                elif res.status_code in [httpx.codes.BAD_REQUEST, httpx.codes.NOT_FOUND]:
-                    return None
+            elif res.status_code == httpx.codes.TOO_MANY_REQUESTS:
+                self._delay += 0.1
+                raise TooManyRequestsException("Too many requests")
+            elif res.status_code in [httpx.codes.BAD_REQUEST, httpx.codes.NOT_FOUND]:
+                return None
 
-                res.raise_for_status()
-                return res.json()
-            return await self._retry.run(_do)
+            res.raise_for_status()
+            return res.json()
 
     async def fetch_game_meta(
         self, *, name: Optional[str] = None, igdb_id: Optional[int] = None, steam_appid: Optional[int] = None
@@ -131,7 +128,7 @@ class AsyncIGDBClient:
             game_engines=[e.get("name") for e in (game.get("game_engines") or []) if e and e.get("name")],
             metrics=metrics,
         )
-        # await self._cache.set_json(cache_key, meta.model_dump(), ttl=settings.CACHE_TTL_IGDB_META)
+
         return meta
 
     async def _fetch_meta_by_params(self, params: dict[str, Optional[int]]) -> Optional[dict]:
@@ -162,7 +159,7 @@ class AsyncIGDBClient:
             data = await self._igdb_post("games", query)
             if data:
                 return data[0]
-
+            return None
 
     async def fetch_popularity_metrics(self, igdb_id: int) -> PopularityMetrics:
 

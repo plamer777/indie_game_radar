@@ -5,24 +5,14 @@ import httpx
 
 class BaseAPIClient:
     """The BaseAPIManager class to be inherited by other API managers"""
-    def __init__(self, base_url: str) -> None:
+    def __init__(self) -> None:
         """Initialization of the BaseAPIManager class
-
         """
-        self._token = None
-        self._base_url = base_url
-
-    def _get_headers(self) -> dict:
-        """This method is used to get the headers with necessary information
-        such as the token and the content type
-        :return: a dict representing the http headers
-        """
-        token = f'Bearer {self._token}' if 'Bearer ' not in self._token else self._token
-        return {"Authorization": token, "Content-Type": "application/json"}
+        self._delay = 0
 
     async def _get_json_response(
         self, url: str, data: dict | None = None, method: str = "GET",
-        query_params: dict | None = None, raise_on_status_code: dict[int: type[Exception]] | None = False,
+        query_params: dict | None = None, raise_on_status_code: dict[int, type[Exception]] | None = False,
         add_status_code: bool = False, headers: dict | None = None
     ) -> list | dict:
         """This method is used to get the response from the API
@@ -38,7 +28,6 @@ class BaseAPIClient:
         into the result dict
         :return: a list or a dict
         """
-        headers = headers or self._get_headers()
         raise_on_status_code = raise_on_status_code or {}
 
         async with (httpx.AsyncClient() as client):

@@ -42,8 +42,6 @@ class EditorialRefiner:
 
         return {'title': title, 'content': text}
 
-
-
     def _build_prompt(self, title: str, text: str, post_type: str) -> str:
         prompt_template = self._prompt_mapper.get(post_type)
         if not prompt_template:

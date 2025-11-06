@@ -1,6 +1,5 @@
 from __future__ import annotations
 import asyncio
-import logging
 import random
 from typing import Type, Iterable, Any, Awaitable, Callable
 from src.config import constants as C

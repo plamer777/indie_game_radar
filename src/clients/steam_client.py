@@ -2,12 +2,12 @@ from __future__ import annotations
 import httpx
 import asyncio
 from typing import Any, Optional, AsyncGenerator
+from src.clients.base import BaseAPIClient
 from src.config.constants import TOO_MANY_REQUESTS_DELAY
-from src.exceptions.api_exceptions import TooManyRequestsException
+from src.exceptions.api_exceptions import TooManyRequestsException, NotFoundException
 from src.schemas import GameSchema
 from src.schemas.game_schemas import AppSchema
 from src.utils.common import repeat_execution_async
-from src.utils.retry import RetryPolicy
 from src.clients.shared_dependencies.rate_limiter import SemaphoreLimiter
 from src.managers.cache import RedisCache
 from src.utils.logging import get_logger
@@ -19,19 +19,14 @@ from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class AsyncSteamClient:
+class AsyncSteamClient(BaseAPIClient):
     def __init__(
         self, cache: RedisCache, api_key: str = settings.STEAM_API_KEY,
         web_api_base_url: str = settings.STEAM_WEBAPI_BASE,
         store_base_url: str = settings.STEAM_STORE_BASE
     ) -> None:
+        super().__init__()
         self._client = httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS)
-        self._retry = RetryPolicy(
-            retries=settings.HTTP_MAX_RETRIES,
-            base_delay=settings.HTTP_RETRY_BACKOFF_BASE,
-            max_delay=settings.HTTP_RETRY_BACKOFF_MAX,
-            retry_exceptions=(httpx.HTTPError, asyncio.TimeoutError),
-        )
         self._limiter = SemaphoreLimiter(settings.STEAM_MAX_CONCURRENCY)
         self._cache = cache
         self._log = get_logger().bind(client="steam")
@@ -43,7 +38,6 @@ class AsyncSteamClient:
     async def close(self) -> None:
         await self._client.aclose()
 
-    # @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def fetch_apps(
         self, batch_size: int | None = None, since: int | datetime | None = None
     ) -> AsyncGenerator[list[AppSchema], None]:
@@ -53,49 +47,59 @@ class AsyncSteamClient:
             params['if_modified_since'] = since if isinstance(since, int) else int(since.timestamp())
         params.update({'max_results': batch_size} if batch_size else {})
         async with self._limiter:
-            async def _do():
-                res = await self._client.get(url, params=params)
-                if res.status_code == httpx.codes.TOO_MANY_REQUESTS:
-                    raise TooManyRequestsException("Too many requests")
-                res.raise_for_status()
-                data = res.json()
-                result = data.get("response", {})
-                return result
+            attempts = 3
             while True:
-                result = await self._retry.run(_do)
-                have_more = result.get('have_more_results')
-                apps = result.get('apps', [])
-                last_app_id = result.get('last_appid')
-                params['last_appid'] = last_app_id
-                yield [AppSchema(**app) for app in apps]
-                if not have_more:
-                    break
+                try:
+                    await asyncio.sleep(self._delay)
+
+                    response = await self._get_json_response(
+                        url, query_params=params,
+                        raise_on_status_code={httpx.codes.TOO_MANY_REQUESTS: TooManyRequestsException}
+                    )
+                    result = response.get("response", {})
+                    have_more = result.get('have_more_results')
+                    apps = result.get('apps', [])
+                    last_app_id = result.get('last_appid')
+                    params['last_appid'] = last_app_id
+                    yield [AppSchema(**app) for app in apps]
+                    if not have_more:
+                        break
+
+                except Exception as e:
+                    self._delay += 0.1
+                    attempts -= 1
+                    if attempts == 0:
+                        raise e
 
     @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def fetch_app_news(
         self, app_id: int, count: int = C.NEWS_COUNT, max_length: int | None = None
     ) -> list[SteamNewsItem] | None:
-        try:
             url = f"{self._base_web_api_url}/ISteamNews/GetNewsForApp/v0002/"
             params = {'key': self._api_key, 'format': self._format, 'appid': app_id, 'count': count}
             if max_length:
                 params['maxlength'] = max_length
             async with self._limiter:
-                async def _do():
-                    res = await self._client.get(url, params=params)
-                    if res.status_code in [403, 404]:
-                        return None
-                    elif res.status_code == httpx.codes.TOO_MANY_REQUESTS:
-                        raise TooManyRequestsException("Too many requests")
-                    res.raise_for_status()
-                    data = res.json()
-                    raw_news = data.get('appnews', {}).get("newsitems", [])
+                try:
+                    await asyncio.sleep(self._delay)
+                    response = await self._get_json_response(
+                        url, query_params=params,
+                        raise_on_status_code={
+                            httpx.codes.TOO_MANY_REQUESTS: TooManyRequestsException,
+                            httpx.codes.NOT_FOUND: NotFoundException,
+                            httpx.codes.BAD_REQUEST: NotFoundException
+                        }
+                    )
+                    raw_news = response.get('appnews', {}).get("newsitems", [])
                     return [SteamNewsItem(**news) for news in raw_news]
-
-                return await self._retry.run(_do)
-        except Exception as e:
-            self._log.error("fetch_app_news_failed", appid=app_id, error=str(e))
-            return None
+                except NotFoundException:
+                    return None
+                except TooManyRequestsException as e:
+                    self._delay += 0.1
+                    raise e
+                except Exception as e:
+                    self._log.error("fetch_app_news_failed", appid=app_id, error=str(e))
+                    return None
 
     async def fetch_full_app_details(self, appid: int) -> GameSchema | None:
         log = self._log.bind(appid=appid)
@@ -121,28 +125,31 @@ class AsyncSteamClient:
 
     @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def fetch_app_details(self, appid: int) -> Optional[GameSchema]:
-        try:
-            url = f"{self._base_store_api_url}/api/appdetails"
-            params = {'key': self._api_key, 'format': self._format, 'appids': appid, 'l': 'en', 'cc': 'us'}
-            async with self._limiter:
-                async def _do():
-                    res = await self._client.get(url, params=params)
-                    if res.status_code in [403, 404]:
-                        return None
-                    elif res.status_code == httpx.codes.TOO_MANY_REQUESTS:
-                        raise TooManyRequestsException("Too many requests")
-                    res.raise_for_status()
-                    payload = res.json()
-                    raw = payload.get(str(appid))
-                    if not raw or not raw.get("success"):
-                        return None
-                    return self._normalize_game(appid, raw.get("data", {}))
-                game = await self._retry.run(_do)
-
-            return game
-        except Exception as e:
-            self._log.error("fetch_app_details_failed", appid=appid, error=str(e))
-            return None
+        url = f"{self._base_store_api_url}/api/appdetails"
+        params = {'key': self._api_key, 'format': self._format, 'appids': appid, 'l': 'en', 'cc': 'us'}
+        async with self._limiter:
+            try:
+                await asyncio.sleep(self._delay)
+                response = await self._get_json_response(
+                    url, query_params=params,
+                    raise_on_status_code={
+                        httpx.codes.TOO_MANY_REQUESTS: TooManyRequestsException,
+                        httpx.codes.NOT_FOUND: NotFoundException,
+                        httpx.codes.BAD_REQUEST: NotFoundException
+                    }
+                )
+                raw = response.get(str(appid))
+                if not raw or not raw.get("success"):
+                    return None
+                return self._normalize_game(appid, raw.get("data", {}))
+            except NotFoundException:
+                return None
+            except TooManyRequestsException as e:
+                self._delay += 0.1
+                raise e
+            except Exception as e:
+                self._log.error("fetch_app_details_failed", appid=appid, error=str(e))
+                return None
 
     def _normalize_game(self, appid: int, data: dict[str, Any]) -> Optional[GameSchema]:
         name = data.get("name")
@@ -205,19 +212,24 @@ class AsyncSteamClient:
             url = f"{self._base_web_api_url}/ISteamUserStats/GetNumberOfCurrentPlayers/v1"
             params = {'key': self._api_key, 'appid': appid, 'format': self._format}
             async with self._limiter:
-                async def _do():
-                    resp = await self._client.get(url, params=params)
-                    if resp.status_code in [403, 404]:
-                        return None
-                    elif resp.status_code == httpx.codes.TOO_MANY_REQUESTS:
-                        raise TooManyRequestsException("Too many requests")
-                    resp.raise_for_status()
-                    j = resp.json().get("response", {})
-                    if "player_count" in j:
-                        return CurrentPlayersResponse(player_count=j["player_count"])
-                    return None
-
-                return await self._retry.run(_do)
+                await asyncio.sleep(self._delay)
+                response = await self._get_json_response(
+                    url, query_params=params,
+                    raise_on_status_code={
+                        httpx.codes.TOO_MANY_REQUESTS: TooManyRequestsException,
+                        httpx.codes.NOT_FOUND: NotFoundException,
+                        httpx.codes.BAD_REQUEST: NotFoundException
+                    }
+                )
+                j = response.get("response", {})
+                if "player_count" in j:
+                    return CurrentPlayersResponse(player_count=j["player_count"])
+                return None
+        except NotFoundException:
+            return None
+        except TooManyRequestsException as e:
+            self._delay += 0.1
+            raise e
         except Exception as e:
             self._log.error("fetch_current_players_failed", appid=appid, error=str(e))
             return None
@@ -228,21 +240,26 @@ class AsyncSteamClient:
             url = f"{self._base_web_api_url}/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
             params = {'gameid': appid, 'format': self._format}
             async with self._limiter:
-                async def _do():
-                    resp = await self._client.get(url, params=params)
-                    if resp.status_code in [403, 404]:
-                        return None
-                    elif resp.status_code == httpx.codes.TOO_MANY_REQUESTS:
-                        raise TooManyRequestsException("Too many requests")
-                    resp.raise_for_status()
-                    j = resp.json().get("achievementpercentages", {})
-                    ach_list = j.get("achievements", [])
-                    return [
-                            AchievementPct(name=a["name"], percent=a["percent"])
-                            for a in ach_list if "name" in a and "percent" in a
-                        ]
-
-                return await self._retry.run(_do)
+                await asyncio.sleep(self._delay)
+                response = await self._get_json_response(
+                    url, query_params=params,
+                    raise_on_status_code={
+                        httpx.codes.TOO_MANY_REQUESTS: TooManyRequestsException,
+                        httpx.codes.NOT_FOUND: NotFoundException,
+                        httpx.codes.BAD_REQUEST: NotFoundException
+                    }
+                )
+                j = response.get("achievementpercentages", {})
+                ach_list = j.get("achievements", [])
+                return [
+                        AchievementPct(name=a["name"], percent=a["percent"])
+                        for a in ach_list if "name" in a and "percent" in a
+                    ]
+        except NotFoundException:
+            return None
+        except TooManyRequestsException as e:
+            self._delay += 0.1
+            raise e
         except Exception as e:
             self._log.error("fetch_achievements_failed", appid=appid, error=str(e))
             return None
@@ -264,52 +281,58 @@ class AsyncSteamClient:
                 params['cursor'] = cursor
 
             async with self._limiter:
-                async def _do():
-                    resp = await self._client.get(url, params=params)
-                    if resp.status_code in [403, 404]:
-                        return None
-                    elif resp.status_code == httpx.codes.TOO_MANY_REQUESTS:
-                        raise TooManyRequestsException("Too many requests")
-                    resp.raise_for_status()
-                    j = resp.json()
-                    reviews = []
-                    for r in j.get("reviews", []):
-                        # map fields
-                        author = ReviewAuthor(
-                            steamid=r.get("author", {}).get("steamid"),
-                            num_games_owned=r.get("author", {}).get("num_games_owned"),
-                            num_reviews=r.get("author", {}).get("num_reviews"),
-                            played_for=r.get("author", {}).get("playtime_forever"),
-                        )
-                        reviews.append(
-                            ReviewItem(
-                                author=author,
-                                review=r.get("review"),
-                                language=r.get("language"),
-                                timestamp_created=r.get("timestamp_created"),
-                                voted_up=r.get("voted_up"),
-                                votes_up=r.get("votes_up"),
-                                votes_funny=r.get("votes_funny"),
-                            )
-                        )
-                    review_summary = j.get("query_summary", {})
+                await asyncio.sleep(self._delay)
+                response = await self._get_json_response(
+                    url, query_params=params,
+                    raise_on_status_code={
+                        httpx.codes.TOO_MANY_REQUESTS: TooManyRequestsException,
+                        httpx.codes.NOT_FOUND: NotFoundException,
+                        httpx.codes.BAD_REQUEST: NotFoundException
+                    }
+                )
 
-                    try:
-                        ratio = review_summary.get("total_positive") / review_summary.get("total_reviews")
-                    except Exception:
-                        ratio = 0
-
-                    return ReviewResponse(
-                        total_reviews=review_summary.get("total_reviews"),
-                        total_negative=review_summary.get("total_negative"),
-                        total_positive=review_summary.get("total_positive"),
-                        ratio = round(ratio, 3),
-                        review_score=review_summary.get("review_score"),
-                        reviews=reviews,
-                        cursor=j.get("cursor")
+                reviews = []
+                for r in response.get("reviews", []):
+                    # map fields
+                    author = ReviewAuthor(
+                        steamid=r.get("author", {}).get("steamid"),
+                        num_games_owned=r.get("author", {}).get("num_games_owned"),
+                        num_reviews=r.get("author", {}).get("num_reviews"),
+                        played_for=r.get("author", {}).get("playtime_forever"),
                     )
+                    reviews.append(
+                        ReviewItem(
+                            author=author,
+                            review=r.get("review"),
+                            language=r.get("language"),
+                            timestamp_created=r.get("timestamp_created"),
+                            voted_up=r.get("voted_up"),
+                            votes_up=r.get("votes_up"),
+                            votes_funny=r.get("votes_funny"),
+                        )
+                    )
+                review_summary = response.get("query_summary", {})
 
-                return await self._retry.run(_do)
+                try:
+                    ratio = review_summary.get("total_positive") / review_summary.get("total_reviews")
+                except Exception:
+                    ratio = 0
+
+                return ReviewResponse(
+                    total_reviews=review_summary.get("total_reviews"),
+                    total_negative=review_summary.get("total_negative"),
+                    total_positive=review_summary.get("total_positive"),
+                    ratio=round(ratio, 3),
+                    review_score=review_summary.get("review_score"),
+                    reviews=reviews,
+                    cursor=response.get("cursor")
+                )
+
+        except NotFoundException:
+            return None
+        except TooManyRequestsException as e:
+            self._delay += 0.1
+            raise e
 
         except Exception as e:
             self._log.error("fetch_reviews_failed", appid=appid, error=str(e))
