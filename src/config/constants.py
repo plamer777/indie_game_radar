@@ -1,6 +1,10 @@
 from __future__ import annotations
-
 import re
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Base client settings
+BASE_CLIENT_MIN_INCREASE_DIFF_SEC = 10
+BASE_CLIENT_INCREASE_STEP = 0.1
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Filtering thresholds and heuristics
@@ -91,7 +95,8 @@ ROUND_PRECISION = 1
 GAMEDEV_SUBREDDITS = [
     # Общие по разработке
     "gamedev", "indiedev", "gameDevClassifieds", "IndieGaming", "IndieDev",
-    "GameDesign", "GameDevelopment", "Unity3D", "UnrealEngine", "Godot",
+    "GameDesign", "GameDevelopment", "Unity3D", "UnrealEngine", "Godot", "SoloDevelopment", "DestroyMyGame",
+    "indiegames", "IndieGameDevs", "DevBlogs"
     # Арт, визуалы, музыка
     "GameAudio", "PixelArt", "IndieArt", "GameAssets", "3Dmodeling",
     # Продвижение и маркетинг
@@ -104,9 +109,23 @@ GAMEDEV_SUBREDDITS = [
     "GameIndustry", "GameDevHumor", "LearnGameDev",
 ]
 
+GAME_MEME_SUBREDDITS = [
+    "gamingmemes",              # общий саб с игровыми мемами
+    "gamememes",                # ещё один крупный саб по игровым мемам
+    "pcmasterrace",             # мемы, юмор про ПК-геймеров и платформу
+    "justgamedevthings",        # мемы/юмор про разработку игр (геймдев) :contentReference[oaicite:0]{index=0}
+    "IndieDev",                 # инди-разработка, там иногда мемы появляются :contentReference[oaicite:1]{index=1}
+    "gamedevmemes",             # нишевой саб, мемы про разработку (может быть малочисленным)
+    "gamingcirclejerk",         # саркастические/ироничные игровые мемы :contentReference[oaicite:2]{index=2}
+    "gametheorymemes",          # мемы про гейм/фильм-теорию, можно перекрестно использовать :contentReference[oaicite:3]{index=3}
+    "LeagueOfMemes",            # пример сабреддита, посвященный конкретной игровой серии (для разнообразия) :contentReference[oaicite:4]{index=4}
+    "ProgrammerHumor",          # разработчики/программирование: контент может пересекаться с геймдевом :contentReference[oaicite:5]{index=5}
+]
+
 REDDIT_STEAM_URL_RE = re.compile(r"https?://store\.steampowered\.com/app/(\d+)", re.IGNORECASE)
 DEFAULT_GAME_RELATED_POSTS_LIMIT = 20
 DEFAULT_GAME_DEV_STORY_POSTS_LIMIT = 100
+DEFAULT_GAME_MEME_POSTS_LIMIT = 100
 GAMEDEV_DISCUSSION_QUERIES = [
     # 🎮 Общие обсуждения разработки игр
     "game development",

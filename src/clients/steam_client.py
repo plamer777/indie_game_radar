@@ -66,7 +66,7 @@ class AsyncSteamClient(BaseAPIClient):
                         break
 
                 except Exception as e:
-                    self._delay += 0.1
+                    self._increase_delay()
                     attempts -= 1
                     if attempts == 0:
                         raise e
@@ -95,7 +95,7 @@ class AsyncSteamClient(BaseAPIClient):
                 except NotFoundException:
                     return None
                 except TooManyRequestsException as e:
-                    self._delay += 0.1
+                    self._increase_delay()
                     raise e
                 except Exception as e:
                     self._log.error("fetch_app_news_failed", appid=app_id, error=str(e))
@@ -145,7 +145,7 @@ class AsyncSteamClient(BaseAPIClient):
             except NotFoundException:
                 return None
             except TooManyRequestsException as e:
-                self._delay += 0.1
+                self._increase_delay()
                 raise e
             except Exception as e:
                 self._log.error("fetch_app_details_failed", appid=appid, error=str(e))
@@ -228,7 +228,7 @@ class AsyncSteamClient(BaseAPIClient):
         except NotFoundException:
             return None
         except TooManyRequestsException as e:
-            self._delay += 0.1
+            self._increase_delay()
             raise e
         except Exception as e:
             self._log.error("fetch_current_players_failed", appid=appid, error=str(e))
@@ -258,7 +258,7 @@ class AsyncSteamClient(BaseAPIClient):
         except NotFoundException:
             return None
         except TooManyRequestsException as e:
-            self._delay += 0.1
+            self._increase_delay()
             raise e
         except Exception as e:
             self._log.error("fetch_achievements_failed", appid=appid, error=str(e))
@@ -331,7 +331,7 @@ class AsyncSteamClient(BaseAPIClient):
         except NotFoundException:
             return None
         except TooManyRequestsException as e:
-            self._delay += 0.1
+            self._increase_delay()
             raise e
 
         except Exception as e:

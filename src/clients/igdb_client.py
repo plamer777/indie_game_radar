@@ -41,6 +41,7 @@ class AsyncIGDBClient(BaseAPIClient):
     async def _ensure_token(self) -> str:
         if self._access_token:
             return self._access_token
+        await asyncio.sleep(self._delay)
         resp = await self._client.post(
             settings.TWITCH_OAUTH_URL,
             data={
@@ -50,7 +51,7 @@ class AsyncIGDBClient(BaseAPIClient):
             },
         )
         if resp.status_code == httpx.codes.TOO_MANY_REQUESTS:
-            self._delay += 0.1
+            self._increase_delay()
             raise TooManyRequestsException("Too many requests")
 
         resp.raise_for_status()
@@ -83,7 +84,7 @@ class AsyncIGDBClient(BaseAPIClient):
                 headers["Authorization"] = f"Bearer {self._access_token}"
                 res = await self._client.post(url, content=query, headers=headers)
             elif res.status_code == httpx.codes.TOO_MANY_REQUESTS:
-                self._delay += 0.1
+                self._increase_delay()
                 raise TooManyRequestsException("Too many requests")
             elif res.status_code in [httpx.codes.BAD_REQUEST, httpx.codes.NOT_FOUND]:
                 return None

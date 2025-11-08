@@ -1,11 +1,8 @@
-from datetime import datetime
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, AsyncGenerator
 from asyncpraw import Reddit
 from asyncpraw.models import Submission
 from src.config.settings import settings
-from src.schemas import RedditPostSchema
 from src.utils.logging import get_logger
-from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -32,44 +29,20 @@ class RedditClient:
             )
         return self._reddit
 
-    async def fetch_meta_indie_posts(
+    async def find_submissions(
         self,
-        queries: list[str] = C.GAMEDEV_DISCUSSION_QUERIES,
-        limit: int = C.DEFAULT_GAME_DEV_STORY_POSTS_LIMIT,
-        subreddit_list: Optional[List[str]] = C.GAMEDEV_SUBREDDITS,
-    ) -> list[RedditPostSchema]:
-        self._ensure_client()
-        posts = []
-        subreddits = "+".join(subreddit_list)
-        subreddit_obj = await self._reddit.subreddit(subreddits)
-
-        for q in queries:
-            try:
-                async for submission in subreddit_obj.search(q, sort="new", limit=limit // len(queries)):
-                    post_model = await self._map_submission(submission, post_type="game_dev_story")
-                    posts.append(post_model)
-            except Exception as e:
-                print(f"⚠️ Query '{q}' failed: {e}")
-
-        # убираем дубликаты по id
-        unique_posts = {p.id: p for p in posts}.values()
-        return list(unique_posts)
-
-    async def search_posts_for_game(
-        self,
-        steam_appid: int,
-        subreddit_list: Optional[List[str]] = C.GAMEDEV_SUBREDDITS,
-        limit: int = C.DEFAULT_GAME_RELATED_POSTS_LIMIT
-    ) -> List[RedditPostSchema]:
+        query: str,
+        subreddit_list: Optional[List[str]] = None,
+        sort: Literal['new', 'hot', 'rising', 'controversial', 'top', 'gilded'] = 'new',
+        limit: int | None = None,
+    ) -> AsyncGenerator[Submission, None]:
         """
         Ищет посты, связанные с игрой: по названию и/или по Steam AppID.
         Можно ограничить списком сабреддитов.
         """
-        log = self._log.bind(appid=steam_appid)
-        log.info("search_posts_for_game")
+        log = self._log.bind(query=query)
+        log.info("search reddit posts")
         self._ensure_client()
-        results: List[RedditPostSchema] = []
-        query = f'"store.steampowered.com/app/{steam_appid}"'
 
         # если указаны сабреддиты — объединяем через +
         subreddits = "all"
@@ -77,106 +50,8 @@ class RedditClient:
             subreddits = "+".join(subreddit_list)
         subreddit_obj = await self._reddit.subreddit(subreddits)
 
-        async for submission in subreddit_obj.search(query, sort="new", limit=limit):
-            try:
-                post_model = await self._map_submission(submission, steam_appid)
-                results.append(post_model)
-            except Exception as e:
-                log.warning(f"Failed to map submission {submission.id}: {e}")
-        return results
-
-    async def _map_submission(
-        self,
-        submission: Submission,
-        steam_appid: Optional[int] = None,
-        post_type: Literal['game_related', 'game_dev_story'] = 'game_related'
-    ) -> RedditPostSchema:
-        # извлечение steam_appid из URL или текста, если не передан
-        extracted_appid: Optional[int] = steam_appid
-        match = C.REDDIT_STEAM_URL_RE.search(submission.url or "")
-        if match:
-            try:
-                extracted_appid = int(match.group(1))
-            except ValueError:
-                pass
-
-        # snippet: берем первые ~150 символов selftext
-        snippet = None
-        if submission.selftext:
-            snippet = submission.selftext.strip().replace("\n", " ")[:150]
-
-        # preview images
-        preview_images = None
-        if hasattr(submission, "preview") and submission.preview:
-            try:
-                preview_images = [img["source"]["url"] for img in submission.preview["images"]]
-            except Exception:
-                preview_images = None
-
-        # media urls
-        media_urls = None
-        if submission.media and hasattr(submission.media, "items"):
-            try:
-                media_urls = [v for v in submission.media.values() if type(v) is str]
-            except Exception:
-                media_urls = None
-
-        # get subreddit subscribers if available
-        try:
-            subreddit_subs = await submission.subreddit.subscribers
-        except Exception:
-            subreddit_subs = None
-
-        edited_utc = None
-        if submission.edited and isinstance(submission.edited, (int, float)):
-            edited_utc = datetime.fromtimestamp(submission.edited)
-
-        model = RedditPostSchema(
-            reddit_id=submission.id,
-            fullname=submission.name,
-            type=post_type,
-            steam_appid=extracted_appid,
-            title=submission.title,
-            selftext=submission.selftext or None,
-            selftext_html=getattr(submission, "selftext_html", None),
-            url=submission.url,
-            permalink=f"https://reddit.com{submission.permalink}",
-            domain=submission.domain,
-            author=getattr(submission.author, "name", None),
-            author_fullname=getattr(submission.author, "fullname", None) if submission.author else None,
-            author_is_blocked=getattr(submission.author, "is_blocked", None) if submission.author else None,
-            author_premium=getattr(submission.author, "is_gold", None) if submission.author else None,
-            subreddit=submission.subreddit.display_name,
-            subreddit_id=submission.subreddit_id,
-            subreddit_name_prefixed=submission.subreddit_name_prefixed,
-            subreddit_type=submission.subreddit_type,
-            subreddit_subscribers=subreddit_subs,
-            created_utc=datetime.fromtimestamp(submission.created_utc),
-            edited_utc=edited_utc,
-            score=submission.score,
-            ups=getattr(submission, "ups", None),
-            downs=getattr(submission, "downs", None),
-            upvote_ratio=getattr(submission, "upvote_ratio", None),
-            num_comments=submission.num_comments,
-            num_crossposts=getattr(submission, "num_crossposts", None),
-            over_18=submission.over_18,
-            is_self=submission.is_self,
-            is_video=submission.is_video,
-            is_original_content=getattr(submission, "is_original_content", None),
-            thumbnail=submission.thumbnail if submission.thumbnail != "self" else None,
-            thumbnail_height=getattr(submission, "thumbnail_height", None),
-            thumbnail_width=getattr(submission, "thumbnail_width", None),
-            preview_images=preview_images,
-            media_urls=media_urls,
-            total_awards_received=getattr(submission, "total_awards_received", None),
-            all_awardings=getattr(submission, "all_awardings", None),
-            post_hint=getattr(submission, "post_hint", None),
-            link_flair_text=getattr(submission, "link_flair_text", None),
-            link_flair_template_id=getattr(submission, "link_flair_template_id", None),
-            extract_snippet=snippet,
-            crawl_time=datetime.now(),
-        )
-        return model
+        async for submission in subreddit_obj.search(query, sort=sort, limit=limit):
+            yield submission
 
     async def close(self):
         if self._reddit:

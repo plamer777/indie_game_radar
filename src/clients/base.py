@@ -1,5 +1,7 @@
 import logging
+import time
 import httpx
+from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -9,6 +11,17 @@ class BaseAPIClient:
         """Initialization of the BaseAPIManager class
         """
         self._delay = 0
+        self._last_increased_time = 0
+        self._min_increase_diff_sec = C.BASE_CLIENT_MIN_INCREASE_DIFF_SEC
+        self._increase_step = C.BASE_CLIENT_INCREASE_STEP
+
+    def _increase_delay(self) -> None:
+        """The method to increase the delay with checking the minimum increase difference and avoid too fast increase
+        in the case if there were too many requests in a short period of time
+        """
+        if time.time() - self._last_increased_time > self._min_increase_diff_sec:
+            self._delay += 0.1
+            self._last_increased_time = time.time()
 
     async def _get_json_response(
         self, url: str, data: dict | None = None, method: str = "GET",

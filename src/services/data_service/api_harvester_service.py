@@ -11,6 +11,7 @@ from src.models.game import GameModel
 from src.schemas import GameSnapshotSchema, GameSchema, RedditPostSchema
 from src.schemas.igdb_schemas import IGDBMetaSchema
 from src.services.base_service import BaseService
+from src.services.data_service.adapters import RedditAdapter
 from src.services.shared_dependencies import NewsStatCalculator
 from src.utils.logging import get_logger
 # --------------------------------------------------------------------------------------------------------------------
@@ -30,7 +31,6 @@ class APIHarvesterService(BaseService):
     ):
         self._steam = steam_client
         self._igdb_client = igdb_client
-        self._reddit_client = reddit_client
         self._reddit_posts = reddit_post_repo
         self._games = game_repo
         self._game_snapshot_repo = game_snapshot_repo
@@ -38,6 +38,7 @@ class APIHarvesterService(BaseService):
         self._igdb = igdb_repo
         self._log = get_logger().bind(service="api_harvester")
         self._news_stat_calculator = NewsStatCalculator()
+        self._reddit_adapter = RedditAdapter(reddit_client)
 
     async def fetch_cycle(self, until: datetime) -> None:
         """
@@ -137,7 +138,7 @@ class APIHarvesterService(BaseService):
 
     async def fetch_reddit_posts_by_game(self, game: GameSchema | GameModel) -> list[RedditPostSchema]:
         try:
-            reddit_posts = await self._reddit_client.search_posts_for_game(
+            reddit_posts = await self._reddit_adapter.search_posts_for_game(
                 steam_appid=game.steam_appid
             )
             [setattr(post, 'game_name', game.name) for post in reddit_posts]
@@ -152,7 +153,7 @@ class APIHarvesterService(BaseService):
         cycle_log = self._log.bind(method="fetch_steam_games")
         cycle_log.info("start updating game dev reddit posts")
         try:
-            reddit_posts = await self._reddit_client.fetch_meta_indie_posts()
+            reddit_posts = await self._reddit_adapter.fetch_meta_indie_posts()
             await self._reddit_posts.add_or_update(reddit_posts, search_field="reddit_id")
 
             return reddit_posts
