@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Optional, Union
 from pydantic import Field
 from typing_extensions import Literal
-
 from src.config import constants as C
 from src.models.game import PriceInfo, SteamExtendedInfo, PlatformsInfo
 from src.models.publication import PublishStatus
@@ -89,7 +88,7 @@ class RedditPostPublicationSchema(BaseSchema):
     error: Optional[str] = None
     title: str
     steam_appid: Optional[int] = None
-    type: Literal['game_related', 'game_dev_story']
+    type: Literal['game_related', 'game_dev_story', 'meme']
     selftext: Optional[str] = None
     selftext_html: Optional[str] = None
     url: Optional[str] = None

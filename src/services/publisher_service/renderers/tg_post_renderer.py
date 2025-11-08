@@ -13,6 +13,9 @@ from src.templates import (
     NEWS_POST_TEMPLATES,
     REDDIT_POST_TEMPLATES,
 )
+from src.templates.reddit_meme_puplications import REDDIT_MEME_TEMPLATES
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -32,6 +35,7 @@ class PostRenderer:
             "discounts": self._render_discount_post,
             "news": self._render_news_post,
             "reddit_posts": self._render_reddit_post,
+            "reddit_memes": self._render_meme_post,
         }
 
     # ------------------------------------------------------------
@@ -113,4 +117,14 @@ class PostRenderer:
         }
 
         template = self.env.from_string(random.choice(REDDIT_POST_TEMPLATES))
+        return template.render(**context).strip()
+
+    def _render_meme_post(self, post: RedditPostPublicationSchema) -> str:
+        context = {
+            "title": post.title,
+            "subreddit": post.subreddit or "unknown",
+            "image_url": post.url or post.preview_images[0] if post.preview_images else None,
+        }
+
+        template = self.env.from_string(random.choice(REDDIT_MEME_TEMPLATES))
         return template.render(**context).strip()

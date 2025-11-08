@@ -13,11 +13,11 @@ from src.scheduler.scheduler import AsyncScheduler
 from src.services.data_service import APIHarvesterService
 from src.services.publisher_service import PublisherService
 from src.services.publisher_service.editors import EditorialRefiner
-from src.services.rank_service.filters import DiscountFilter, RedditPostFilter, RedditDevPostFilter
+from src.services.rank_service.filters import DiscountFilter, RedditPostFilter, RedditDevPostFilter, RedditMemeFilter
 from src.services.rank_service.filters.filter import GameFilter
 from src.services.rank_service.filters.news_filter import NewsFilter
 from src.services.rank_service.rank_engine_service import RankEngineService
-from src.services.rank_service.rankers import NewsRanker, RedditPostRanker, RedditDevPostRanker
+from src.services.rank_service.rankers import NewsRanker, RedditPostRanker, RedditDevPostRanker, RedditMemeRanker
 from src.services.rank_service.rankers.ranker import GameRanker
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -43,6 +43,8 @@ reddit_post_ranker = RedditPostRanker()
 reddit_dev_post_ranker = RedditDevPostRanker()
 reddit_dev_post_filter = RedditDevPostFilter(client)
 editorial_refiner = EditorialRefiner(client)
+reddit_meme_filter = RedditMemeFilter()
+reddit_meme_ranker = RedditMemeRanker()
 
 # Repositories
 games_repo = GameRepository()
@@ -89,6 +91,8 @@ rank_engine = RankEngineService(
     reddit_post_publication_repo=reddit_post_publication_repo,
     reddit_dev_post_ranker=reddit_dev_post_ranker,
     reddit_dev_post_filter=reddit_dev_post_filter,
+    reddit_meme_ranker=reddit_meme_ranker,
+    reddit_meme_filter=reddit_meme_filter,
 )
 
 publisher = PublisherService(

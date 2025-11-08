@@ -3,6 +3,7 @@ from .news_filter import NewsFilter
 from .filter import GameFilter
 from .reddit_posts_filter import RedditPostFilter
 from .reddit_game_dev_post_filter import RedditDevPostFilter
+from .reddit_meme_filter import RedditMemeFilter
 # ---------------------------------------------------------------------------------------------------------------------
 
 __all__ = [
@@ -10,6 +11,7 @@ __all__ = [
     "NewsFilter",
     "GameFilter",
     "RedditPostFilter",
-    "RedditDevPostFilter"
+    "RedditDevPostFilter",
+    "RedditMemeFilter"
 ]
 

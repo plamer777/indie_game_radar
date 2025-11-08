@@ -126,6 +126,8 @@ REDDIT_STEAM_URL_RE = re.compile(r"https?://store\.steampowered\.com/app/(\d+)",
 DEFAULT_GAME_RELATED_POSTS_LIMIT = 20
 DEFAULT_GAME_DEV_STORY_POSTS_LIMIT = 1000
 DEFAULT_GAME_MEME_POSTS_LIMIT = 100
+
+GAME_MEME_OVERSAMPLE_FACTOR = 10
 GAMEDEV_DISCUSSION_QUERIES = [
     # 🎮 Общие обсуждения разработки игр
     "game development",
@@ -454,6 +456,15 @@ REDDIT_CLAMP_MIN = 0.0
 REDDIT_CLAMP_MAX = 1.0
 
 # ---------------------------------------------------------------------------------------------------------------------
+# --- Reddit Meme Ranker ---
+REDDIT_MEME_RANKER_UPS_WEIGHT = 0.7              # вес апвоутов в общем скоре
+REDDIT_MEME_RANKER_COMMENTS_WEIGHT = 0.3         # вес комментариев в общем скоре
+REDDIT_MEME_RANKER_ENGAGEMENT_NORM = 10.0        # нормализация логарифмической вовлечённости
+REDDIT_MEME_RANKER_HALFLIFE_DAYS = 30.0          # "период полураспада" свежести мема
+REDDIT_MEME_RANKER_MIN_DECAY = 0.3               # минимальное значение коэффициента свежести
+REDDIT_MEME_RANKER_MAX_UPS = 50000               # верхний предел апвоутов (для лог-нормализации)
+REDDIT_MEME_RANKER_MAX_COMMENTS = 2000           # верхний предел комментариев (для лог-нормализации)
+# ---------------------------------------------------------------------------------------------------------------------
 # News filter
 NEWS_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
 NEWS_FILTER_GAME_RATING_MIN = 0.3
@@ -559,6 +570,12 @@ Respond **only** in strict JSON format:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Reddit meme filter
+# constants.py
+REDDIT_MEME_FILTER_MAX_AGE_DAYS = 90
+REDDIT_MEME_FILTER_MIN_SCORE = 0.7
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Reddit Dev Post Filter
 REDDIT_DEV_FILTER_TIME_WINDOW_DAYS = 14
 REDDIT_DEV_FILTER_MIN_RANK_SCORE = 0.5
@@ -604,9 +621,9 @@ TIME_WINDOWS = {
 
 # Базовые приоритеты по времени суток
 TIME_PRIORITIES = {
-    "morning": {"news": 0.4, "reddit_posts": 0.2, "games": 0.25, "discounts": 0.15},
-    "day": {"news": 0.2, "games": 0.2, "discounts": 0.2, "reddit_posts": 0.4},
-    "evening": {"news": 0.1, "games": 0.4, "discounts": 0.4, "reddit_posts": 0.1},
+    "morning": {"news": 0.1, "reddit_posts": 0.2, "games": 0.25, "discounts": 0.15, "reddit_memes": 0.3},
+    "day": {"news": 0.2, "games": 0.2, "discounts": 0.2, "reddit_posts": 0.2, "reddit_memes": 0.2},
+    "evening": {"news": 0.1, "games": 0.3, "discounts": 0.3, "reddit_posts": 0.1, "reddit_memes": 0.2},
 }
 
 EDITORIAL_REFINER_STEAM_NEWS_PROMPT = """

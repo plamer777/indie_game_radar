@@ -11,8 +11,8 @@ from src.schemas.reddit_schemas import RankedRedditPostSchema
 from src.services.base_service import BaseService
 from src.services.shared_dependencies.calculators import NewsStatCalculator
 from src.services.rank_service.filters import GameFilter, NewsFilter, DiscountFilter, RedditPostFilter, \
-    RedditDevPostFilter
-from src.services.rank_service.rankers import NewsRanker, RedditPostRanker, RedditDevPostRanker
+    RedditDevPostFilter, RedditMemeFilter
+from src.services.rank_service.rankers import NewsRanker, RedditPostRanker, RedditDevPostRanker, RedditMemeRanker
 from src.services.rank_service.rankers.ranker import GameRanker
 from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
@@ -38,7 +38,9 @@ class RankEngineService(BaseService):
         ranked_reddit_posts_repo: RankedRedditPostRepository,
         reddit_post_filter: RedditPostFilter,
         reddit_post_publication_repo: RedditPostPublicationRepository,
-        reddit_dev_post_filter: RedditDevPostFilter
+        reddit_dev_post_filter: RedditDevPostFilter,
+        reddit_meme_filter: RedditMemeFilter,
+        reddit_meme_ranker: RedditMemeRanker,
     ):
         super().__init__()
         self._log = get_logger().bind(service="rank_engine")
@@ -62,12 +64,15 @@ class RankEngineService(BaseService):
         self._reddit_post_publication_repo = reddit_post_publication_repo
         self._reddit_dev_post_ranker = reddit_dev_post_ranker
         self._reddit_dev_post_filter = reddit_dev_post_filter
+        self._reddit_meme_ranker = reddit_meme_ranker
+        self._reddit_meme_filter = reddit_meme_filter
 
     async def rank_all(self):
         cycle_log = self._log.bind(method="rank_all")
         cycle_log.info("ranking games and news")
         await self.rank_games()
         await self.rank_game_dev_story_reddit_posts(cycle_log)
+        await self.rank_game_meme_reddit_posts(cycle_log)
 
     async def rank_games(self) -> None:
         """The main method for ranking games.
@@ -204,6 +209,33 @@ class RankEngineService(BaseService):
         except Exception as e:
             cycle_log.error(f"Error ranking game dev reddit posts: {e}")
 
+    async def rank_game_meme_reddit_posts(self, cycle_log: Logger) -> None:
+        try:
+            max_ranked_date = await self._ranked_reddit_posts_repo.get_max_value(
+                field_name='last_ranked_at', params={'type': 'meme'}
+            )
+            since = max_ranked_date.get('max_value') or datetime.min
+            game_dev_posts = await self._reddit_post_repo.get_all(
+                {'type': 'meme', 'updated_at': {'$gte': since}}, sort_by={'updated_at': -1},
+                generator_mode=True
+            )
+            ranked_posts = []
+            async for reddit_post in game_dev_posts:
+                try:
+                    reddit_post_score = self._reddit_meme_ranker.evaluate(reddit_post)
+                    ranked_post = RankedRedditPostSchema(
+                        **reddit_post.model_dump(), last_score=reddit_post_score
+                    )
+                    ranked_posts.append(ranked_post)
+
+                except Exception as e:
+                    cycle_log.error(f"Error ranking reddit meme post {reddit_post.reddit_id}: {e}")
+
+            await self._ranked_reddit_posts_repo.add_or_update(ranked_posts, search_field="reddit_id")
+
+        except Exception as e:
+            cycle_log.error(f"Error ranking game dev reddit posts: {e}")
+
     async def filter_news(self, top_n: int) -> list[NewsPublicationSchema]:
         cycle_log = self._log.bind(method="filter_news")
         cycle_log.info("started")
@@ -276,6 +308,31 @@ class RankEngineService(BaseService):
 
         async for post in reddit_posts:
             filtered = await self._reddit_dev_post_filter.filter_posts([post])
+            for checked in filtered:
+                was = await self._reddit_post_publication_repo.was_published(checked)
+                if not was:
+                    unpublished.append(RedditPostPublicationSchema(**post.model_dump()))
+
+                if len(unpublished) >= top_n:
+                    break
+
+        return unpublished
+
+    async def filter_game_meme_reddit_posts(self, top_n: int) -> list[RedditPostPublicationSchema]:
+        cycle_log = self._log.bind(method="filter_game_meme_reddit_posts")
+        cycle_log.info("started")
+
+        unpublished = []
+        if top_n <= 0:
+            return unpublished
+
+        reddit_posts = await self._ranked_reddit_posts_repo.get_all(
+            {'type': 'meme', 'last_score': {'$gte': C.REDDIT_MEME_FILTER_MIN_SCORE}},
+            sort_by={'last_score': -1}, generator_mode=True
+        )
+
+        async for post in reddit_posts:
+            filtered = self._reddit_meme_filter.filter_posts([post])
             for checked in filtered:
                 was = await self._reddit_post_publication_repo.was_published(checked)
                 if not was:

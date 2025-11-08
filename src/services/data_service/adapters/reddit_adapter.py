@@ -16,19 +16,42 @@ class RedditAdapter:
     async def fetch_gaming_memes(
         self,
         subreddit_list: Optional[list[str]] = C.GAME_MEME_SUBREDDITS,
-        limit: int = 100
+        limit: int = C.DEFAULT_GAME_MEME_POSTS_LIMIT,
+        oversample_factor: int = C.GAME_MEME_OVERSAMPLE_FACTOR,
     ) -> list[RedditPostSchema]:
-        """Загружает свежие игровые мемы"""
-
+        """
+        Загружает свежие игровые мемы.
+        oversample_factor — во сколько раз увеличить лимит исходной выборки,
+        чтобы компенсировать отсеивание нерелевантных постов.
+        """
+        log = self._log
+        log.info("fetch_gaming_memes")
         posts = []
+        fetched = 0
+        target = limit
+
+        # внутренний лимит больше внешнего, чтобы компенсировать отсеивание
+        internal_limit = limit * oversample_factor
 
         async for submission in self._client.find_submissions(
-            "flair:Meme", sort="hot", limit=limit, subreddit_list=subreddit_list
+                "flair:Meme", sort="hot", limit=internal_limit, subreddit_list=subreddit_list
         ):
-            if not submission.url or not submission.url.endswith((".jpg", ".png", ".gif")):
+            # фильтруем только изображения
+            if not submission.url or not submission.url.lower().endswith((".jpg", ".jpeg", ".png", ".gif")):
                 continue
-            post_model = await self._map_submission(submission, post_type="meme")
+
+            try:
+                post_model = await self._map_submission(submission, post_type="meme")
+            except Exception as e:
+                log.warning(f"Ошибка при маппинге поста: {e}")
+                continue
+
             posts.append(post_model)
+            fetched += 1
+
+            if fetched >= target:
+                break  # достигли нужного количества отфильтрованных постов
+
         return posts
 
     async def search_posts_for_game(

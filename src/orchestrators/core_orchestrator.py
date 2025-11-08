@@ -94,6 +94,7 @@ class Orchestrator:
         news_to_publish = 0
         discounts_to_publish = 0
         reddis_posts_to_publish = 0
+        reddit_memes_to_publish = 0
         allocated = []
         for attempt in range(5):
             filtered_games_to_publish = await self._rank_engine.filter_games(top_n)
@@ -103,15 +104,18 @@ class Orchestrator:
             filtered_game_dev_reddit_posts = await self._rank_engine.filter_game_dev_reddit_posts(
                 top_n - len(filtered_reddis_posts)
             )
+            filtered_game_meme_reddit_posts = await self._rank_engine.filter_game_meme_reddit_posts(top_n)
 
             filtered_reddis_posts += filtered_game_dev_reddit_posts
             games_to_publish = len(filtered_games_to_publish)
             news_to_publish = len(filtered_news_to_publish)
             discounts_to_publish = len(filtered_discounts)
             reddis_posts_to_publish = len(filtered_reddis_posts)
+            reddit_memes_to_publish = len(filtered_game_meme_reddit_posts)
+
             content_strategy = ContentAllocationStrategy(
                 games=filtered_games_to_publish, news=filtered_news_to_publish, discounts=filtered_discounts,
-                reddit_posts=filtered_reddis_posts
+                reddit_posts=filtered_reddis_posts, reddit_memes=filtered_game_meme_reddit_posts
             )
             allocated = content_strategy.schedule_daily_posts(top_n)
             if len(allocated) == top_n:
@@ -123,7 +127,7 @@ class Orchestrator:
             cycle_log.warning(
                 "not_enough_content_to_publish", filtered_games_to_publish=games_to_publish,
                 filtered_news_to_publish=news_to_publish, filtered_discounts=discounts_to_publish,
-                filtered_reddis_posts=reddis_posts_to_publish,
+                filtered_reddis_posts=reddis_posts_to_publish, filtered_reddit_memes=reddit_memes_to_publish,
                 total_content=len(allocated)
             )
 

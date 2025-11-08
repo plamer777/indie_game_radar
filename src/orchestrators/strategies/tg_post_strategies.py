@@ -22,11 +22,13 @@ class ContentAllocationStrategy:
         games: list[GamePublicationRecordSchema],
         discounts: list[DiscountPublicationSchema],
         reddit_posts: list[RedditPostPublicationSchema],
+        reddit_memes: list[RedditPostPublicationSchema],
     ) -> None:
         self.news = news or []
         self.games = games or []
         self.discounts = discounts or []
         self.reddit_posts = reddit_posts or []
+        self.reddit_memes = reddit_memes or []
 
     # -------------------------------------------------------------------------
     # --------------------------- ВРЕМЯ И ИНТЕРВАЛЫ ----------------------------
@@ -90,6 +92,7 @@ class ContentAllocationStrategy:
             "games": len(self.games),
             "discounts": len(self.discounts),
             "reddit_posts": len(self.reddit_posts),
+            "reddit_memes": len(self.reddit_memes)
         }
 
         deficit = {}
