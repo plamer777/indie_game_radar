@@ -1,10 +1,7 @@
-import json
 import re
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
 from src.models import RankedGameModel
 from src.utils.common import parse_json
-
-
 # ---------------------------------------------------------------------------------------------------------------------
 
 

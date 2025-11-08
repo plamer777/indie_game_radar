@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import Optional
-
 from src.models import RankedGameModel
 from src.models.game import GameSnapshot
 from src.schemas.publication_schemas import DiscountPublicationSchema
@@ -23,7 +22,10 @@ class DiscountFilter(BaseFilter):
 
         # Сортируем снапшоты по дате
         snapshots = sorted(snapshots, key=lambda s: s.created_at)
-        with_min_price, with_max_price = min(snapshots, key=lambda s: s.price), max(snapshots, key=lambda s: s.price)
+        try:
+            with_min_price, with_max_price = min(snapshots, key=lambda s: s.price), max(snapshots, key=lambda s: s.price)
+        except Exception:
+            return None
 
         if not with_min_price.price or not with_max_price.price or with_min_price.price <= 0:
             return None
