@@ -106,10 +106,11 @@ GAMEDEV_SUBREDDITS = [
 
 REDDIT_STEAM_URL_RE = re.compile(r"https?://store\.steampowered\.com/app/(\d+)", re.IGNORECASE)
 DEFAULT_GAME_RELATED_POSTS_LIMIT = 20
-DEFAULT_GAME_DEV_STORY_POSTS_LIMIT = 100
+DEFAULT_GAME_DEV_STORY_POSTS_LIMIT = 1000
 GAMEDEV_DISCUSSION_QUERIES = [
     # 🎮 Общие обсуждения разработки игр
     "game development",
+    "solo dev",
     "indie dev",
     "indie game dev",
     "indie developer",
@@ -118,9 +119,10 @@ GAMEDEV_DISCUSSION_QUERIES = [
     "developing my game",
     "working on my game",
     "building a game",
-    "my first game project",
+    "my first game",
     "solo game developer",
     "learning game dev",
+    "game dev looks like",
 
     # 💡 Опыт, истории, фейлы, инсайты
     "my game dev journey",
@@ -136,6 +138,10 @@ GAMEDEV_DISCUSSION_QUERIES = [
     "success story game dev",
     "failed game project",
     "indie dev experience",
+    "worst thing game dev",
+    "game solo dev",
+    "my first solo dev game",
+    "passion for game dev"
 
     # 🧠 Технические / производственные темы
     "game engine choice",
@@ -353,9 +359,9 @@ REDDIT_GAME_QUALITY_REDUCTION_FACTOR = 0.8  # снижение влияния ga
 REDDIT_GAME_QUALITY_TECH_MULTIPLIER = 1.1   # усиление game_quality при техничных постах
 REDDIT_INFO_VALUE_GAME_QUALITY_THRESHOLD = 0.4  # порог низкого инфо-контента
 
-REDDIT_DEV_WEIGHT_FRESHNESS = 0.3
-REDDIT_DEV_WEIGHT_SOURCE = 0.25
-REDDIT_DEV_WEIGHT_ENGAGEMENT = 0.25
+REDDIT_DEV_WEIGHT_FRESHNESS = 0.2
+REDDIT_DEV_WEIGHT_SOURCE = 0.2
+REDDIT_DEV_WEIGHT_ENGAGEMENT = 0.4
 REDDIT_DEV_WEIGHT_STORYTELLING = 0.2
 
 REDDIT_DEV_TECH_PENALTY = 0.6
@@ -503,7 +509,7 @@ REDDIT_FILTER_MIN_CONTENT_LENGTH = 80          # минимальная длин
 REDDIT_FILTER_MIN_RANK_SCORE = 0.5             # минимальный рейтинг для публикации
 REDDIT_FILTER_SIMILARITY_THRESHOLD = 0.65      # минимальная семантическая близость к игре
 REDDIT_FILTER_TIME_WINDOW_HOURS = 168
-REDDIT_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 360
+REDDIT_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
 REDDIT_FILTER_GAME_RATING_MIN = 0.3
 
 REDDIT_FILTER_GPT_MODEL = 'gpt-4o-mini'
@@ -536,7 +542,7 @@ Respond **only** in strict JSON format:
 # ---------------------------------------------------------------------------------------------------------------------
 # Reddit Dev Post Filter
 REDDIT_DEV_FILTER_TIME_WINDOW_DAYS = 14
-REDDIT_DEV_FILTER_MIN_RANK_SCORE = 0.25
+REDDIT_DEV_FILTER_MIN_RANK_SCORE = 0.5
 REDDIT_DEV_FILTER_MIN_CONTENT_LENGTH = 400
 REDDIT_DEV_FILTER_SIMILARITY_THRESHOLD = 0.75
 REDDIT_DEV_FILTER_EMBEDDING_MODEL = "text-embedding-3-small"

@@ -50,7 +50,7 @@ class RedditDevPostFilter(BaseFilter):
             result.append(p)
 
         # сортировка по свежести и score
-        result.sort(key=lambda p: (p.created_at, p.rank_score), reverse=True)
+        result.sort(key=lambda p: (p.created_at, p.last_score), reverse=True)
         return result
 
     # --- helpers ---

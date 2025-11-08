@@ -45,7 +45,9 @@ class RedditClient:
 
         for q in queries:
             try:
-                async for submission in subreddit_obj.search(q, sort="new", limit=limit // len(queries)):
+                async for submission in subreddit_obj.search(
+                    q, sort="hot", limit=limit // len(queries), time_filter='week'
+                ):
                     post_model = await self._map_submission(submission, post_type="game_dev_story")
                     posts.append(post_model)
             except Exception as e:
@@ -79,7 +81,7 @@ class RedditClient:
 
         async for submission in subreddit_obj.search(query, sort="new", limit=limit):
             try:
-                post_model = await self._map_submission(submission, steam_appid)
+                post_model = await self._map_submission(submission, steam_appid, post_type='game_related')
                 results.append(post_model)
             except Exception as e:
                 log.warning(f"Failed to map submission {submission.id}: {e}")

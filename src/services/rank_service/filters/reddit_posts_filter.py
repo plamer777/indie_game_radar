@@ -59,8 +59,8 @@ class RedditPostFilter(BaseFilter):
             if p.link_flair_text and self._has_bad_flair(p.link_flair_text):
                 continue
             prompt = self._prompt_template.format(game_name=game.name, title=p.title, text=p.selftext)
-            content_filter = await self._filter_by_content(prompt)
-            if not content_filter["suitable"]:
+            content_filter_result = await self._filter_by_content(prompt)
+            if not content_filter_result.get("suitable"):
                 continue
 
             result.append(p)

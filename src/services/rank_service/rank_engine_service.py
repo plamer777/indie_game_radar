@@ -271,16 +271,18 @@ class RankEngineService(BaseService):
 
         reddit_posts = await self._ranked_reddit_posts_repo.get_all(
             {'type': 'game_dev_story', 'last_score': {'$gte': C.REDDIT_GAME_DEV_FILTER_RATING_MIN}},
-            sort_by={'last_score': -1}
+            sort_by={'last_score': -1}, generator_mode=True
         )
-        filtered = await self._reddit_dev_post_filter.filter_posts(reddit_posts)
-        for post in filtered:
-            was = await self._reddit_post_publication_repo.was_published(post)
-            if not was:
-                unpublished.append(RedditPostPublicationSchema(**post.model_dump()))
 
-            if len(unpublished) >= top_n:
-                break
+        async for post in reddit_posts:
+            filtered = await self._reddit_dev_post_filter.filter_posts([post])
+            for checked in filtered:
+                was = await self._reddit_post_publication_repo.was_published(checked)
+                if not was:
+                    unpublished.append(RedditPostPublicationSchema(**post.model_dump()))
+
+                if len(unpublished) >= top_n:
+                    break
 
         return unpublished
 
@@ -309,7 +311,7 @@ class RankEngineService(BaseService):
                     },
                     sort_by={'snapshot_time': -1}
                 )
-                discount = await self._discount_filter.detect_discount(game, snapshots)
+                discount = self._discount_filter.detect_discount(game, snapshots)
                 if discount:
                     was = await self._discount_publication_repo.was_published(game.steam_appid)
                     if not was:

@@ -154,7 +154,7 @@ class APIHarvesterService(BaseService):
         try:
             reddit_posts = await self._reddit_client.fetch_meta_indie_posts()
             await self._reddit_posts.add_or_update(reddit_posts, search_field="reddit_id")
-
+            cycle_log.info("fetched game dev reddit posts", processed=len(reddit_posts))
             return reddit_posts
         except Exception as e:
             cycle_log.error("fetch_game_dev_reddit_posts", exc_info=True, error=e)
