@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import List
 from openai import AsyncOpenAI
+from src.db.repositories import CheckedEntityRepository
 from src.models.reddit import RankedRedditPost
 from src.config import constants as C
 from src.services.rank_service.filters.base_filter import BaseFilter
@@ -15,11 +16,12 @@ class RedditDevPostFilter(BaseFilter):
     def __init__(
         self,
         open_ai_client: AsyncOpenAI,
+        checked_entity_repo: CheckedEntityRepository,
         time_window_days: int = C.REDDIT_DEV_FILTER_TIME_WINDOW_DAYS,
         gpt_model: str = C.REDDIT_DEV_FILTER_GPT_MODEL,
         prompt_template: str = C.REDDIT_DEV_FILTER_PROMPT_TEMPLATE,
     ):
-        super().__init__(open_ai_client, gpt_model)
+        super().__init__(open_ai_client, gpt_model, checked_entity_repo=checked_entity_repo)
         self.time_window = timedelta(days=time_window_days)
         self._prompt_template = prompt_template
 
@@ -39,11 +41,17 @@ class RedditDevPostFilter(BaseFilter):
                 continue
 
             # 2️⃣ контент-фильтр GPT
+            checked = await self._get_checked(p.reddit_id, entity_type='reddit')
+            if checked:
+                if checked.suitable:
+                    result.append(p)
+                continue
             prompt = self._prompt_template.format(
                 title=p.title,
                 text=p.selftext
             )
             content_filter = await self._filter_by_content(prompt)
+            await self._add_to_checked(p.reddit_id, entity_type='reddit', result=content_filter)
             if not content_filter.get("suitable"):
                 continue
 

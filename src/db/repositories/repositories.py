@@ -5,10 +5,10 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 from src.config.constants import GAMES_COLLECTION, IGDB_META_COLLECTION, GAME_PUBLICATIONS_COLLECTION, APPS_COLLECTION, \
     GAME_SNAPSHOTS_COLLECTION, NEWS_PUBLICATIONS_COLLECTION, DISCOUNT_PUBLICATIONS_COLLECTION, RANKED_GAMES_COLLECTION, \
-    REDDIT_POSTS_COLLECTION, RANKED_REDDIT_POSTS_COLLECTION
+    REDDIT_POSTS_COLLECTION, RANKED_REDDIT_POSTS_COLLECTION, CHECKED_ENTITIES_COLLECTION
 from src.db.repositories.base_repo import BaseRepository
 from src.models.game import GameModel, AppModel, GameSnapshot, RankedGameModel
-from src.models import IGDBMeta, RedditPost, RankedRedditPost
+from src.models import IGDBMeta, RedditPost, RankedRedditPost, CheckedEntity
 from src.models.publication import GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication, \
     RedditPostPublication
 from src.config import constants as C
@@ -216,3 +216,12 @@ class DiscountPublicationRepository(BaseRepository[DiscountPublication]):
             }
         )
         return doc is not None
+
+
+class CheckedEntityRepository(BaseRepository[CheckedEntity]):
+    def __init__(
+        self, collection_name: str = CHECKED_ENTITIES_COLLECTION,
+        model: type[CheckedEntity] = CheckedEntity,
+        db: AsyncIOMotorDatabase | None = None
+    ) -> None:
+        super().__init__(collection_name, model, db)

@@ -1,14 +1,21 @@
 import re
+from typing import Literal
 from openai import AsyncOpenAI
-from src.models import RankedGameModel
+from src.db.repositories import CheckedEntityRepository
+from src.models import RankedGameModel, CheckedEntity
+from src.schemas import CheckedEntitySchema
 from src.utils.common import parse_json
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class BaseFilter:
-    def __init__(self, open_ai_client: AsyncOpenAI | None = None, gpt_model: str | None = None):
+    def __init__(
+        self, open_ai_client: AsyncOpenAI | None = None, gpt_model: str | None = None,
+        checked_entity_repo: CheckedEntityRepository | None = None
+    ):
         self._open_ai_client = open_ai_client
         self._gpt_model = gpt_model
+        self._checked_entity_repo = checked_entity_repo
 
     BIG_PUBLISHERS = {
         "ubisoft", "ea", "electronic arts", "activision", "square enix",
@@ -72,3 +79,32 @@ class BaseFilter:
                 return parsed
 
         return {"suitable": False, "confidence": 0.0, "reason": "No JSON found"}
+
+
+    async def _get_checked(
+        self, entity_id: str | int, entity_type: Literal['news', 'game', 'reddit']
+    ) -> CheckedEntity | None:
+        """The method returns the result of the filter for the entity if it was checked before
+
+        Args:
+            entity_id: The ID of the entity
+            entity_type: The type of the entity
+
+        Returns:
+            CheckedEntity | None: The result of the filter for the entity if it was checked before
+        """
+        checked = await self._checked_entity_repo.get_one({'entity_id': entity_id, 'type': entity_type})
+        return checked
+
+    async def _add_to_checked(
+        self, entity_id: str | int, entity_type: Literal['news', 'game', 'reddit'], result: dict
+    ) -> None:
+        """The method adds the result of the filter for the entity to the checked entities repository
+        Args:
+            entity_id: The ID of the entity
+            entity_type: The type of the entity
+            result: The result of the filter for the entity
+        """
+        await self._checked_entity_repo.add_new(
+            CheckedEntitySchema(entity_id=entity_id, type=entity_type, **result).model_dump()
+        )

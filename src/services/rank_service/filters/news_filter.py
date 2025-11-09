@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 import numpy as np
 from openai import AsyncOpenAI
+from src.db.repositories.repositories import CheckedEntityRepository
 from src.models.game import SteamNewsItem, RankedGameModel
 from src.config import constants as C
 from src.services.rank_service.filters.base_filter import BaseFilter
@@ -13,15 +14,16 @@ class NewsFilter(BaseFilter):
     def __init__(
         self,
         open_ai_client: AsyncOpenAI,
+        checked_entity_repo: CheckedEntityRepository,
         time_window_hours: int = C.NEWS_FILTER_TIME_WINDOW_HOURS,
         allowed_feeds: Optional[List[str]] = None,
         blocked_feeds: Optional[List[str]] = None,
         similarity_threshold: float = C.NEWS_FILTER_SIMILARITY_THRESHOLD,
         embedding_model: str = C.NEWS_FILTER_EMBEDDING_MODEL,
         gpt_model: str = C.NEWS_FILTER_GPT_MODEL,
-        prompt_template: str = C.NEWS_FILTER_PROMPT_TEMPLATE
+        prompt_template: str = C.NEWS_FILTER_PROMPT_TEMPLATE,
     ):
-        super().__init__(open_ai_client, gpt_model)
+        super().__init__(open_ai_client, gpt_model, checked_entity_repo = checked_entity_repo)
         self.time_window = timedelta(hours=time_window_hours)
         self.allowed_feeds = set(allowed_feeds or [])
         self.blocked_feeds = set(blocked_feeds or [])
@@ -95,8 +97,15 @@ class NewsFilter(BaseFilter):
         deduped = await self._deduplicate(pre_filtered)
         filtered = []
         for item in deduped:
+            checked = await self._get_checked(entity_id=item.gid, entity_type='news')
+            if checked:
+                if checked.suitable:
+                    filtered.append(item)
+                continue
+
             prompt = self._prompt_template.format(game_name=game.name, title=item.title, text=item.contents)
             content_filter = await self._filter_by_content(prompt)
+            await self._add_to_checked(entity_id=item.gid, entity_type='news', result=content_filter)
             if content_filter["suitable"]:
                 filtered.append(item)
 

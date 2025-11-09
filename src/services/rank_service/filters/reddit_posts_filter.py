@@ -3,6 +3,7 @@ from typing import List
 import numpy as np
 import re
 from openai import AsyncOpenAI
+from src.db.repositories import CheckedEntityRepository
 from src.models import RankedGameModel
 from src.models.reddit import RankedRedditPost
 from src.config import constants as C
@@ -15,13 +16,14 @@ class RedditPostFilter(BaseFilter):
     def __init__(
         self,
         open_ai_client: AsyncOpenAI,
+        checked_entity_repo: CheckedEntityRepository,
         time_window_hours: int = C.REDDIT_FILTER_TIME_WINDOW_HOURS,
         similarity_threshold: float = C.REDDIT_FILTER_SIMILARITY_THRESHOLD,
         embedding_model: str = C.REDDIT_FILTER_EMBEDDING_MODEL,
         gpt_model: str = C.REDDIT_FILTER_GPT_MODEL,
         prompt_template: str = C.REDDIT_FILTER_PROMPT_TEMPLATE
     ):
-        super().__init__(open_ai_client, gpt_model)
+        super().__init__(open_ai_client, gpt_model, checked_entity_repo = checked_entity_repo)
         self.time_window = timedelta(hours=time_window_hours)
         self.similarity_threshold = similarity_threshold
         self.embedding_model = embedding_model
@@ -58,8 +60,14 @@ class RedditPostFilter(BaseFilter):
                 continue
             if p.link_flair_text and self._has_bad_flair(p.link_flair_text):
                 continue
+            checked = await self._get_checked(entity_id=p.reddit_id, entity_type='reddit')
+            if checked:
+                if checked.suitable:
+                    result.append(p)
+                continue
             prompt = self._prompt_template.format(game_name=game.name, title=p.title, text=p.selftext)
             content_filter_result = await self._filter_by_content(prompt)
+            await self._add_to_checked(p.reddit_id, entity_type='reddit', result=content_filter_result)
             if not content_filter_result.get("suitable"):
                 continue
 

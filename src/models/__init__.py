@@ -4,6 +4,7 @@ from .publication import (
     GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication, RedditPostPublication
 )
 from .reddit import RedditPost, RankedRedditPost
+from .checked_record import CheckedEntity
 # --------------------------------------------------------------------------------------------------------------------
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "DiscountPublication",
     "RedditPost",
     "RankedRedditPost",
-    "RedditPostPublication"
+    "RedditPostPublication",
+    "CheckedEntity"
 ]

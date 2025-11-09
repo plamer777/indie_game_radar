@@ -6,7 +6,7 @@ from src.clients.telegram_client import TelegramPublisher
 from src.config.settings import settings
 from src.db.repositories import GameRepository, IGDBRepository, GamePublicationRepository, AppRepository, \
     GameSnapshotRepository, NewsPublicationRepository, DiscountPublicationRepository, RankedGameRepository, \
-    RedditPostRepository, RankedRedditPostRepository, RedditPostPublicationRepository
+    RedditPostRepository, RankedRedditPostRepository, RedditPostPublicationRepository, CheckedEntityRepository
 from src.managers.cache import RedisCache
 from src.orchestrators.core_orchestrator import Orchestrator
 from src.scheduler.scheduler import AsyncScheduler
@@ -28,23 +28,6 @@ client = AsyncOpenAI(api_key=settings.OPEN_AI_KEY)
 # Schedulers
 scheduler = AsyncScheduler()
 
-# Clients/helpers
-steam = AsyncSteamClient(cache)
-igdb = AsyncIGDBClient(cache)
-reddit = RedditClient()
-tg = TelegramPublisher()
-ranker = GameRanker()
-gfilter = GameFilter()
-news_ranker = NewsRanker()
-news_filter = NewsFilter(client)
-discount_filter = DiscountFilter()
-reddit_post_filter = RedditPostFilter(client)
-reddit_post_ranker = RedditPostRanker()
-reddit_dev_post_ranker = RedditDevPostRanker()
-reddit_dev_post_filter = RedditDevPostFilter(client)
-editorial_refiner = EditorialRefiner(client)
-reddit_meme_filter = RedditMemeFilter()
-reddit_meme_ranker = RedditMemeRanker()
 
 # Repositories
 games_repo = GameRepository()
@@ -58,6 +41,26 @@ discount_pub_repo = DiscountPublicationRepository()
 reddit_post_repo = RedditPostRepository()
 ranked_reddit_posts_repo = RankedRedditPostRepository()
 reddit_post_publication_repo = RedditPostPublicationRepository()
+checked_entity_repo = CheckedEntityRepository()
+
+
+# Clients/helpers
+steam = AsyncSteamClient(cache)
+igdb = AsyncIGDBClient(cache)
+reddit = RedditClient()
+tg = TelegramPublisher()
+ranker = GameRanker()
+gfilter = GameFilter()
+news_ranker = NewsRanker()
+news_filter = NewsFilter(client, checked_entity_repo=checked_entity_repo)
+discount_filter = DiscountFilter()
+reddit_post_filter = RedditPostFilter(client, checked_entity_repo=checked_entity_repo)
+reddit_post_ranker = RedditPostRanker()
+reddit_dev_post_ranker = RedditDevPostRanker()
+reddit_dev_post_filter = RedditDevPostFilter(client, checked_entity_repo=checked_entity_repo)
+editorial_refiner = EditorialRefiner(client)
+reddit_meme_filter = RedditMemeFilter()
+reddit_meme_ranker = RedditMemeRanker()
 
 # Services
 api_harvester = APIHarvesterService(
