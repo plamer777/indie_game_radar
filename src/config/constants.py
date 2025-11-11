@@ -25,6 +25,7 @@ FILTER_MAX_YEARS_SINCE_RELEASE = 1  # allow older only if score very high
 FILTER_MIN_SCORE_FOR_OLD_TITLES = 0.85
 FILTER_MAX_PRICE = 40.0  # USD-equivalent heuristic
 SCORE_PUBLISH_THRESHOLD = 0.5
+DEFAULT_DUPLICATION_THRESHOLD = 0.9
 # ---------------------------------------------------------------------------------------------------------------------
 # Retry defaults
 DEFAULT_RETRY_ATTEMPTS = 3
@@ -481,7 +482,7 @@ NEWS_FILTER_IMPORTANT_KEYWORDS = [
 ]
 NEWS_FILTER_TIME_WINDOW_HOURS = 96
 NEWS_FILTER_SIMILARITY_THRESHOLD = 0.75
-NEWS_FILTER_DUPLICATION_THRESHOLD = 0.92
+DEFAULT_DUPLICATION_THRESHOLD = 0.92
 
 NEWS_FILTER_GPT_MODEL = 'gpt-4o-mini'
 NEWS_FILTER_EMBEDDING_MODEL = 'text-embedding-3-small'
@@ -574,7 +575,7 @@ Respond **only** in strict JSON format:
 # Reddit meme filter
 # constants.py
 REDDIT_MEME_FILTER_MAX_AGE_DAYS = 90
-REDDIT_MEME_FILTER_MIN_SCORE = 0.7
+REDDIT_MEME_FILTER_MIN_SCORE = 0.6
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Reddit Dev Post Filter

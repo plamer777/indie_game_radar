@@ -207,12 +207,13 @@ class DiscountPublicationRepository(BaseRepository[DiscountPublication]):
         data["updated_at"] = datetime.now()
         await self.add_or_update(data, search_field="steam_appid")
 
-    async def was_published(self, steam_appid: int, channel: str = "telegram") -> bool:
+    async def was_published(self, discount: DiscountPublicationSchema, channel: str = "telegram") -> bool:
         now = datetime.now()
         doc = await self._collection.find_one(
             {
-                "steam_appid": steam_appid, "channel": channel, "status": PublishStatus.published,
-                "updated_at": {"$gte": now - timedelta(days=C.DISCOUNT_PUBLICATION_DAYS_LIMIT)}
+                "steam_appid": discount.steam_appid, "channel": channel, "status": PublishStatus.published,
+                "updated_at": {"$gte": now - timedelta(days=C.DISCOUNT_PUBLICATION_DAYS_LIMIT)},
+                "new_price": {"$gte": discount.new_price}
             }
         )
         return doc is not None

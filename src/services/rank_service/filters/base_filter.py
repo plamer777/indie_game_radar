@@ -1,27 +1,58 @@
 import re
 from typing import Literal
+import numpy as np
 from openai import AsyncOpenAI
 from src.db.repositories import CheckedEntityRepository
 from src.models import RankedGameModel, CheckedEntity
-from src.schemas import CheckedEntitySchema
+from src.schemas import CheckedEntitySchema, DeduplicationSchema
 from src.utils.common import parse_json
+from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class BaseFilter:
     def __init__(
         self, open_ai_client: AsyncOpenAI | None = None, gpt_model: str | None = None,
-        checked_entity_repo: CheckedEntityRepository | None = None
+        checked_entity_repo: CheckedEntityRepository | None = None, embedding_model: str | None = None
     ):
         self._open_ai_client = open_ai_client
         self._gpt_model = gpt_model
         self._checked_entity_repo = checked_entity_repo
+        self._seen_embeddings = []
+        self.embedding_model = embedding_model
 
     BIG_PUBLISHERS = {
         "ubisoft", "ea", "electronic arts", "activision", "square enix",
         "capcom", "bandai namco", "bethesda", "sony", "microsoft", "sega",
         "2k", "take-two", "nintendo", "devolver digital", "tinybuild"
     }
+
+    async def _get_embedding(self, text: str) -> np.ndarray:
+        if not text.strip():
+            return np.zeros(1536)
+        response = await self._open_ai_client.embeddings.create(
+            model=self.embedding_model,
+            input=text
+        )
+        return np.array(response.data[0].embedding)
+
+    def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
+        denom = (np.linalg.norm(a) * np.linalg.norm(b))
+        return float(np.dot(a, b) / denom) if denom else 0.0
+
+    async def _is_deduplicated(
+        self, item: DeduplicationSchema, threshold: float = C.DEFAULT_DUPLICATION_THRESHOLD
+    ) -> bool:
+
+        emb = await self._get_embedding(f"{item.author or ''} {item.title} {item.content or ''}")
+        if not self._seen_embeddings:
+            self._seen_embeddings.append(emb)
+            return False
+        elif all(self._cosine_similarity(emb, e) < threshold for e in self._seen_embeddings):
+            self._seen_embeddings.append(emb)
+            return False
+
+        return True
 
     def _is_indie_game(self, game: RankedGameModel) -> bool:
         name = game.name.lower()

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 from src.schemas.base import BaseSchema
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -9,3 +9,9 @@ class CheckedEntitySchema(BaseSchema):
     suitable: bool | None = None
     confidence: float | None = None
     reason: str | None = None
+
+
+class DeduplicationSchema(BaseSchema):
+    title: str
+    content: str
+    author: Optional[str] = None
