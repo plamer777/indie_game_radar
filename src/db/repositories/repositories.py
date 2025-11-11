@@ -171,7 +171,9 @@ class RedditPostPublicationRepository(BaseRepository[RedditPostPublication]):
         data["updated_at"] = datetime.now()
         await self.add_or_update(data, search_field="reddit_id")
 
-    async def was_published(self, reddit_post: RankedRedditPost, channel: str = "telegram") -> bool:
+    async def was_published(
+        self, reddit_post: RankedRedditPost | RedditPostPublicationSchema, channel: str = "telegram"
+    ) -> bool:
         query = {
             '$or': [
                 {"reddit_id": reddit_post.reddit_id},

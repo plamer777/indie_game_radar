@@ -96,6 +96,7 @@ rank_engine = RankEngineService(
     reddit_dev_post_filter=reddit_dev_post_filter,
     reddit_meme_ranker=reddit_meme_ranker,
     reddit_meme_filter=reddit_meme_filter,
+    open_ai_client=client,
 )
 
 publisher = PublisherService(

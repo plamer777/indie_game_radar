@@ -1,11 +1,10 @@
 from datetime import datetime, timedelta
-from typing import List, Optional
-import numpy as np
+from typing import List, Optional, AsyncGenerator
 from openai import AsyncOpenAI
 from src.db.repositories.repositories import CheckedEntityRepository
 from src.models.game import SteamNewsItem, RankedGameModel
 from src.config import constants as C
-from src.schemas import DeduplicationSchema
+from src.schemas import DeduplicationSchema, NewsPublicationSchema
 from src.services.rank_service.filters.base_filter import BaseFilter
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -46,12 +45,12 @@ class NewsFilter(BaseFilter):
         news_items: List[SteamNewsItem],
         game: RankedGameModel,
         query: Optional[str] = None
-    ) -> List[SteamNewsItem]:
+    ) -> AsyncGenerator[NewsPublicationSchema, None]:
         now = datetime.now()
         filtered = []
 
         if not self._is_indie_game(game):
-            return filtered
+            raise StopAsyncIteration
 
         # 1️⃣ фильтр по времени и источникам
         for item in news_items:
@@ -79,26 +78,16 @@ class NewsFilter(BaseFilter):
             filtered = sorted(results, key=lambda x: x.relevance, reverse=True)
 
         # 3️⃣ фильтр по содержанию
-        deduplicated = []
         for item in filtered:
             text = f"{item.title} {item.contents or ''}".lower()
             if self._contains_low_value_words(text) and not self._contains_important_words(text):
                 continue
 
             # 4️⃣ удаляем дубли по смыслу
-            if not await self._is_deduplicated(
-                DeduplicationSchema(author=item.author, title=item.title, content=item.contents)
-            ):
-                checked = await self._get_checked(entity_id=item.gid, entity_type='news')
-                if checked:
-                    if checked.suitable:
-                        deduplicated.append(item)
-                    continue
+            emb_schema = DeduplicationSchema(author=item.author, title=item.title, content=item.contents)
+            publication_schema = NewsPublicationSchema(**item.model_dump(), header_image=game.header_image)
+            prompt = self._prompt_template.format(game_name=game.name, title=item.title, text=item.contents)
 
-                prompt = self._prompt_template.format(game_name=game.name, title=item.title, text=item.contents)
-                content_filter = await self._filter_by_content(prompt)
-                await self._add_to_checked(entity_id=item.gid, entity_type='news', result=content_filter)
-                if content_filter["suitable"]:
-                    deduplicated.append(item)
+            if await self._is_content_valid(publication_schema, emb_schema, prompt, 'news'):
+                yield publication_schema
 
-        return deduplicated

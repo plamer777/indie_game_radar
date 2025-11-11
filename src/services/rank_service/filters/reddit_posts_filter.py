@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, AsyncGenerator
 import numpy as np
 import re
 from openai import AsyncOpenAI
@@ -7,6 +7,7 @@ from src.db.repositories import CheckedEntityRepository
 from src.models import RankedGameModel
 from src.models.reddit import RankedRedditPost
 from src.config import constants as C
+from src.schemas import RedditPostPublicationSchema, DeduplicationSchema
 from src.services.rank_service.filters.base_filter import BaseFilter
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -42,12 +43,11 @@ class RedditPostFilter(BaseFilter):
         self,
         posts: List[RankedRedditPost],
         game: RankedGameModel
-    ) -> List[RankedRedditPost]:
+    ) -> AsyncGenerator[RedditPostPublicationSchema, None]:
         now = datetime.now()
-        result = []
 
         if not self._is_indie_game(game):
-            return result
+            raise StopAsyncIteration
 
         # 1️⃣ Базовая фильтрация по времени и минимальным метрикам
         for p in posts:
@@ -60,22 +60,12 @@ class RedditPostFilter(BaseFilter):
                 continue
             if p.link_flair_text and self._has_bad_flair(p.link_flair_text):
                 continue
-            checked = await self._get_checked(entity_id=p.reddit_id, entity_type='reddit')
-            if checked:
-                if checked.suitable:
-                    result.append(p)
-                continue
+
             prompt = self._prompt_template.format(game_name=game.name, title=p.title, text=p.selftext)
-            content_filter_result = await self._filter_by_content(prompt)
-            await self._add_to_checked(p.reddit_id, entity_type='reddit', result=content_filter_result)
-            if not content_filter_result.get("suitable"):
-                continue
-
-            result.append(p)
-
-        # 3️⃣ Сортировка: сначала по дате, потом по рейтингу
-        result.sort(key=lambda p: (p.created_at, p.last_score), reverse=True)
-        return result
+            pub_schema = RedditPostPublicationSchema(**p.model_dump())
+            emb_schema = DeduplicationSchema(author=p.author, title=p.title, content=p.selftext)
+            if await self._is_content_valid(pub_schema, emb_schema, prompt, 'reddit'):
+                yield pub_schema
 
     async def _filter_by_relevance(
         self, posts: List[RankedRedditPost], game: RankedGameModel

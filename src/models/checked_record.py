@@ -1,3 +1,4 @@
+from typing import Optional
 from src.models.base import BaseDBModel
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -8,3 +9,4 @@ class CheckedEntity(BaseDBModel):
     suitable: bool | None = None
     confidence: float | None = None
     reason: str | None = None
+    embedding: Optional[list[float]] = None

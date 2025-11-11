@@ -61,6 +61,7 @@ class NewsPublicationRecord(BaseDBModel):
     message_id: Optional[str] = None
     attempt: int = 0
     error: Optional[str] = None
+    embedding: Optional[list[float]] = None
 
 
 class DiscountPublication(BaseDBModel):
@@ -117,3 +118,4 @@ class RedditPostPublication(BaseDBModel):
     post_hint: Optional[str] = None
     link_flair_text: Optional[str] = None
     extract_snippet: Optional[str] = None
+    embedding: Optional[list[float]] = None

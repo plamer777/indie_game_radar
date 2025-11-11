@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, AsyncGenerator
 from openai import AsyncOpenAI
 from src.db.repositories import CheckedEntityRepository
 from src.models.reddit import RankedRedditPost
 from src.config import constants as C
+from src.schemas import RedditPostPublicationSchema, DeduplicationSchema
 from src.services.rank_service.filters.base_filter import BaseFilter
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -25,10 +26,8 @@ class RedditDevPostFilter(BaseFilter):
         self.time_window = timedelta(days=time_window_days)
         self._prompt_template = prompt_template
 
-    async def filter_posts(self, posts: List[RankedRedditPost]) -> List[RankedRedditPost]:
+    async def filter_posts(self, posts: List[RankedRedditPost]) -> AsyncGenerator[RedditPostPublicationSchema, None]:
         now = datetime.now()
-        result = []
-
         for p in posts:
             # 1️⃣ базовые проверки
             if (now - p.created_at) > self.time_window:
@@ -41,25 +40,14 @@ class RedditDevPostFilter(BaseFilter):
                 continue
 
             # 2️⃣ контент-фильтр GPT
-            checked = await self._get_checked(p.reddit_id, entity_type='reddit')
-            if checked:
-                if checked.suitable:
-                    result.append(p)
-                continue
             prompt = self._prompt_template.format(
                 title=p.title,
                 text=p.selftext
             )
-            content_filter = await self._filter_by_content(prompt)
-            await self._add_to_checked(p.reddit_id, entity_type='reddit', result=content_filter)
-            if not content_filter.get("suitable"):
-                continue
-
-            result.append(p)
-
-        # сортировка по свежести и score
-        result.sort(key=lambda p: (p.created_at, p.last_score), reverse=True)
-        return result
+            pub_schema = RedditPostPublicationSchema(**p.model_dump())
+            emb_schema = DeduplicationSchema(author=p.author, title=p.title, content=p.selftext)
+            if await self._is_content_valid(pub_schema, emb_schema, prompt, 'reddit'):
+                yield pub_schema
 
     # --- helpers ---
     def _has_bad_flair(self, flair: str) -> bool:

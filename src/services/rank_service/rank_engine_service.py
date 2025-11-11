@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from logging import Logger
+from openai import AsyncOpenAI
 from src.config import constants as C
 from src.db.repositories import GameRepository, GameSnapshotRepository, GamePublicationRepository, IGDBRepository
 from src.db.repositories.repositories import NewsPublicationRepository, DiscountPublicationRepository, \
@@ -9,6 +10,7 @@ from src.schemas import GamePublicationRecordSchema, NewsPublicationSchema, Rank
     RedditPostPublicationSchema, DiscountPublicationSchema
 from src.schemas.reddit_schemas import RankedRedditPostSchema
 from src.services.base_service import BaseService
+from src.services.rank_service.adapters import NewsPublicationAdapter, RedditPublicationAdapter
 from src.services.shared_dependencies.calculators import NewsStatCalculator
 from src.services.rank_service.filters import GameFilter, NewsFilter, DiscountFilter, RedditPostFilter, \
     RedditDevPostFilter, RedditMemeFilter
@@ -41,6 +43,7 @@ class RankEngineService(BaseService):
         reddit_dev_post_filter: RedditDevPostFilter,
         reddit_meme_filter: RedditMemeFilter,
         reddit_meme_ranker: RedditMemeRanker,
+        open_ai_client: AsyncOpenAI,
     ):
         super().__init__()
         self._log = get_logger().bind(service="rank_engine")
@@ -66,6 +69,14 @@ class RankEngineService(BaseService):
         self._reddit_dev_post_filter = reddit_dev_post_filter
         self._reddit_meme_ranker = reddit_meme_ranker
         self._reddit_meme_filter = reddit_meme_filter
+        self._news_publication_adapter = NewsPublicationAdapter(
+            open_ai_client=open_ai_client,
+            news_publication_repo=news_publication_repo
+        )
+        self._reddit_publication_adapter = RedditPublicationAdapter(
+            open_ai_client=open_ai_client,
+            reddit_publication_repo=reddit_post_publication_repo
+        )
 
     async def rank_all(self):
         cycle_log = self._log.bind(method="rank_all")
@@ -255,21 +266,18 @@ class RankEngineService(BaseService):
         unpublished = []
         async for game in scored_games:
             try:
-                for news in game.last_news[:1]:
-                    was = await self._news_publication_repo.was_published(news.gid)
-                    if not was:
-                        checked_news = await self._news_filter.filter_news([news], game)
-                        for filtered in checked_news:
-                            unpublished.append(
-                                NewsPublicationSchema(**filtered.model_dump(), header_image=game.header_image)
-                            )
+                async for filtered in self._news_filter.filter_news(game.last_news[:1], game):
 
-                            if len(unpublished) >= top_n:
-                                return unpublished
+                    if not await self._news_publication_adapter.was_published(filtered):
+                        unpublished.append(filtered)
+
+                        if len(unpublished) >= top_n:
+                            return unpublished
 
             except Exception as e:
                 cycle_log.error(f"Error filtering news for game {game.steam_appid}: {e}")
 
+        self._news_filter.clean()
         return unpublished
 
     async def filter_reddit_posts(self, top_n: int) -> list[RedditPostPublicationSchema]:
@@ -286,22 +294,18 @@ class RankEngineService(BaseService):
             },
             sort_by={'last_score': -1}, generator_mode=True
         )
+
         unpublished = []
         async for game in scored_games:
             try:
                 reddit_posts = await self._ranked_reddit_posts_repo.get_all(
                     {'steam_appid': game.steam_appid}, limit=1, sort_by={'created_utc': -1}
                 )
-                for post in reddit_posts:
-                    was = await self._reddit_post_publication_repo.was_published(post)
-                    if not was:
-                        checked_posts = await self._reddit_post_filter.filter_posts([post], game)
-
-                        for filtered in checked_posts:
-                            unpublished.append(RedditPostPublicationSchema(**filtered.model_dump()))
-
-                            if len(unpublished) >= top_n:
-                                return unpublished
+                async for filtered in self._reddit_post_filter.filter_posts(reddit_posts, game):
+                    if not await self._reddit_publication_adapter.was_published(filtered):
+                        unpublished.append(filtered)
+                        if len(unpublished) >= top_n:
+                            return unpublished
 
             except Exception as e:
                 cycle_log.error(f"Error filtering reddit posts for game {game.steam_appid}: {e}")
@@ -318,22 +322,13 @@ class RankEngineService(BaseService):
 
         reddit_posts = await self._ranked_reddit_posts_repo.get_all(
             {'type': 'game_dev_story', 'last_score': {'$gte': C.REDDIT_GAME_DEV_FILTER_RATING_MIN}},
-            sort_by={'last_score': -1}, generator_mode=True
+            sort_by={'last_score': -1}
         )
-        filtered_hashes = set()
-        async for post in reddit_posts:
+
+        async for post in self._reddit_dev_post_filter.filter_posts(reddit_posts):
             try:
-                was = await self._reddit_post_publication_repo.was_published(post)
-                if was:
-                    continue
-                checked_posts = await self._reddit_dev_post_filter.filter_posts([post])
-
-                for filtered in checked_posts:
-                    post_hash = hash(filtered.title.lower() + filtered.author.lower())
-                    if post_hash not in filtered_hashes:
-                        unpublished.append(RedditPostPublicationSchema(**filtered.model_dump()))
-                        filtered_hashes.add(post_hash)
-
+                if not await self._reddit_publication_adapter.was_published(post):
+                    unpublished.append(post)
                     if len(unpublished) >= top_n:
                         return unpublished
 
@@ -363,7 +358,7 @@ class RankEngineService(BaseService):
 
                 checked_posts = self._reddit_meme_filter.filter_posts([post])
                 for filtered in checked_posts:
-                    unpublished.append(RedditPostPublicationSchema(**filtered.model_dump()))
+                    unpublished.append(filtered)
 
                     if len(unpublished) >= top_n:
                         return unpublished

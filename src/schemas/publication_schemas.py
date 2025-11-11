@@ -57,6 +57,7 @@ class NewsPublicationSchema(BaseSchema):
     message_id: Optional[str] = None
     attempt: int = 0
     error: Optional[str] = None
+    embedding: Optional[list[float]] = None
 
 
 class DiscountPublicationSchema(BaseSchema):
@@ -115,6 +116,7 @@ class RedditPostPublicationSchema(BaseSchema):
     post_hint: Optional[str] = None
     link_flair_text: Optional[str] = None
     extract_snippet: Optional[str] = None
+    embedding: Optional[list[float]] = None
 
 
 class AllocatedPostsSchema(BaseSchema):

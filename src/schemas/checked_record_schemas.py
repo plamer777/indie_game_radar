@@ -9,9 +9,12 @@ class CheckedEntitySchema(BaseSchema):
     suitable: bool | None = None
     confidence: float | None = None
     reason: str | None = None
+    embedding: Optional[list[float]] = None
 
 
 class DeduplicationSchema(BaseSchema):
     title: str
     content: str
     author: Optional[str] = None
+    embedding: Optional[list[float]] = None
+
