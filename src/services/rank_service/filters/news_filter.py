@@ -50,7 +50,7 @@ class NewsFilter(BaseFilter):
         filtered = []
 
         if not self._is_indie_game(game):
-            raise StopAsyncIteration
+            return
 
         # 1️⃣ фильтр по времени и источникам
         for item in news_items:

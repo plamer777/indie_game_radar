@@ -1,69 +1,77 @@
 
 REDDIT_POST_TEMPLATES = [
-    # --- Template 1 ---
-    """
+# --- Template 1 ---
+"""
 👨‍💻 <b>{{ title }}</b>
-<br>
 {% if image_url %}
-<img src="{{ image_url }}">
-<br>
+<a href="{{ image_url }}">&#8205;</a>
 {% endif %}
+
 {% if extract_snippet %}
 {{ extract_snippet }}
-<br>
 {% elif selftext %}
 {{ selftext[:4000] }}...
-<br>
 {% endif %}
 
 <b>Author:</b> {{ author }}
-<br>  
+  
 <b>Subreddit:</b> r/{{ subreddit }}
-<br>  
+  
 👍 {{ score  }} upvotes | 💬 {{ num_comments  }} comments  
-<br>
+
 <a href="{{ permalink }}">Read on Reddit</a>
-<br>
+{% if steam_appid %}
+<a href="https://store.steampowered.com/app/{{ steam_appid }}">Steam Page</a>
+{% endif %}
+
 #indiegames #gamedev {{ subreddit }}
 """,
 
-    # --- Template 2 ---
-    """
+# --- Template 2 ---
+"""
 🎮 <b>{{ title }}</b>  
-<br>
 {% if image_url %}
-<img src="{{ image_url }}">
-<br>
+
+<a href="{{ image_url }}">&#8205;</a>
 {% endif %}
+
 > {% if extract_snippet %}{{ extract_snippet }}{% elif selftext %}{{ selftext[:4000] }}...{% endif %}
-<br>
+
 🧩 Shared by {{ author  }} on r/{{ subreddit }}
-<br>  
-<a href="{{ permalink }}">Open Reddit Thread</a>
-<br>  
+  
+<a href="{{ permalink }}">Open Reddit Thread</a>  
+{% if steam_appid %}
+
+<a href="https://store.steampowered.com/app/{{ steam_appid }}">Steam Page</a>
+{% endif %}
+
 #indiedev #community {{ subreddit }}
 """,
 
-    # --- Template 3 ---
-    """
+# --- Template 3 ---
+"""
 💬 <b>{{ title }}</b>
-<br>
 {% if image_url %}
-<img src="{{ image_url }}">
-<br>
+
+<a href="{{ image_url }}">&#8205;</a>
 {% endif %}
+
 {% if extract_snippet %}
 {{ extract_snippet }}
-<br>
+
 {% elif selftext %}
 {{ selftext[:4000] }}...
-<br>
+
 {% endif %}
 
 🔗 <a href="{{ permalink }}">Discuss on Reddit</a>  
-<br>
+
 👍 {{ ups }} upvotes | 💬 {{ num_comments }} comments
-<br>  
+  
+{% if steam_appid %}
+<a href="https://store.steampowered.com/app/{{ steam_appid }}">Steam Page</a>
+
+{% endif %}
 #indiegames #reddit {{ subreddit }}
 """
 ]

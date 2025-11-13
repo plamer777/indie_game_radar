@@ -21,8 +21,12 @@ class RedditDevPostFilter(BaseFilter):
         time_window_days: int = C.REDDIT_DEV_FILTER_TIME_WINDOW_DAYS,
         gpt_model: str = C.REDDIT_DEV_FILTER_GPT_MODEL,
         prompt_template: str = C.REDDIT_DEV_FILTER_PROMPT_TEMPLATE,
+        embedding_model: str = C.REDDIT_DEV_FILTER_EMBEDDING_MODEL,
     ):
-        super().__init__(open_ai_client, gpt_model, checked_entity_repo=checked_entity_repo)
+        super().__init__(
+            open_ai_client, gpt_model, checked_entity_repo=checked_entity_repo,
+            embedding_model=embedding_model
+        )
         self.time_window = timedelta(days=time_window_days)
         self._prompt_template = prompt_template
 

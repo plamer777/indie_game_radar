@@ -2,6 +2,7 @@ import numpy as np
 from openai import AsyncOpenAI
 from src.config import constants as C
 from src.schemas import DeduplicationSchema
+from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -13,8 +14,9 @@ class EmbeddingMixin:
         :param embedding_model: The embedding model name.
         """
         self._open_ai_client = open_ai_client
-        self._embedding_model = embedding_model
+        self._embedding_model = embedding_model or C.DEFAULT_EMBEDDING_MODEL
         self._seen_embeddings: list[np.ndarray] = []
+        self._logger = get_logger(__name__).bind(service="embedding mixin")
 
     async def _get_item_embedding(self, item: DeduplicationSchema) -> np.ndarray:
         """Get the embedding for the given item.
@@ -28,13 +30,17 @@ class EmbeddingMixin:
         :param text: The text to get the embedding for.
         :return: The embedding for the given text.
         """
-        if not text.strip():
+        try:
+            if not text.strip():
+                return np.zeros(1536)
+            response = await self._open_ai_client.embeddings.create(
+                model=self._embedding_model,
+                input=text
+            )
+            return np.array(response.data[0].embedding)
+        except Exception as e:
+            self._logger.error(f"Failed to get embedding for text: {text}. Error: {e}")
             return np.zeros(1536)
-        response = await self._open_ai_client.embeddings.create(
-            model=self._embedding_model,
-            input=text
-        )
-        return np.array(response.data[0].embedding)
 
     def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """Calculate the cosine similarity between two embeddings.
@@ -56,6 +62,7 @@ class EmbeddingMixin:
         """
         embeddings = embeddings or self._seen_embeddings
         emb = item.embedding or await self._get_embedding(f"{item.author or ''} {item.title} {item.content or ''}")
+        emb = emb if type(emb) == np.ndarray else np.array(emb)
         item.embedding = emb.tolist()
         if not embeddings:
             embeddings.append(emb)

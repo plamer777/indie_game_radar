@@ -1,10 +1,11 @@
 from __future__ import annotations
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import Optional
 from src.orchestrators.strategies import ContentAllocationStrategy
 from src.scheduler.scheduler import AsyncScheduler
+from src.schemas import AllocatedPostsSchema
 from src.services.data_service import APIHarvesterService
 from src.services.publisher_service import PublisherService
 from src.services.rank_service.rank_engine_service import RankEngineService
@@ -29,9 +30,9 @@ class Orchestrator:
         self._scheduler = scheduler
 
     async def start(self):
-        # await self._run_cycle(top_n=C.DEFAULT_DAILY_POSTS)
         await self._start_harvester()
         await self._start_ranker()
+        await self._run_cycle(top_n=C.DEFAULT_DAILY_POSTS)
 
         while True:
             await asyncio.sleep(3600)
@@ -81,13 +82,11 @@ class Orchestrator:
 
             await asyncio.sleep(C.ORCH_RANKING_INTERVAL)
 
-    async def _run_cycle(
-        self, top_n: Optional[int] = None
-    ) -> None:
-        """The method runs a full cycle of ranking and publishing.
-        :param top_n: The number of games to publish.
+    async def _allocate_posts(self, top_n: int) -> list[AllocatedPostsSchema]:
+        """The method allocates posts to be published
+        :param top_n: Number of posts to allocate
+        :return: List of allocated posts
         """
-        top_n = top_n or C.DEFAULT_DAILY_POSTS
         cycle_log = self._log.bind(top_n=top_n)
         cycle_log.info("cycle_start")
         games_to_publish = 0
@@ -131,5 +130,35 @@ class Orchestrator:
                 total_content=len(allocated)
             )
 
-        # f) Публикации
-        await self._publisher.schedule_publications(allocated)
+        return allocated
+
+    async def _run_cycle(self, top_n: Optional[int] = None) -> None:
+        """Runs the full ranking and publishing cycle once per day."""
+        top_n = top_n or C.DEFAULT_DAILY_POSTS
+
+        while True:
+            now = datetime.now(UTC)
+            if C.ALLOCATION_START_HOUR <= now.hour < C.ALLOCATION_END_HOUR:
+                # --- 1) Распределение ---
+                allocated = await self._allocate_posts(top_n)
+
+                # --- 2) Публикации ---
+                await self._publisher.schedule_publications(allocated)
+
+                next_run = (now + timedelta(days=1)).replace(
+                    hour=C.ALLOCATION_START_HOUR, minute=0, second=0, microsecond=0
+                )
+                wait_seconds = (next_run - datetime.now(UTC)).total_seconds()
+                self._log.info(f"Cycle completed. Next run scheduled at {next_run.isoformat()}")
+                await asyncio.sleep(wait_seconds)
+
+            else:
+                next_run = now.replace(
+                    hour=C.ALLOCATION_START_HOUR, minute=0, second=0, microsecond=0
+                )
+                if next_run <= now:
+                    next_run += timedelta(days=1)
+
+                wait_seconds = (next_run - now).total_seconds()
+                self._log.info(f"Outside posting window. Waiting until {next_run.isoformat()}")
+                await asyncio.sleep(wait_seconds)

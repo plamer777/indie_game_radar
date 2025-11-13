@@ -74,14 +74,17 @@ class BaseFilter(EmbeddingMixin):
         checked = await self._get_checked(entity_id=entity_id, entity_type=entity_type)
         if checked:
             if checked.suitable:
+                emb_schema.embedding = checked.embedding
+                is_duplicated = await self._is_duplicated(emb_schema)
                 if not checked.embedding:
-                    embedding = await self._get_item_embedding(emb_schema)
-                    checked.embedding = embedding.tolist()
-                    pub_schema.embedding = checked.embedding
+                    checked.embedding = emb_schema.embedding
                     await self._update_checked(entity_id=entity_id, entity_type=entity_type, data=checked)
 
                 pub_schema.embedding = checked.embedding
-                return True
+                if not is_duplicated:
+                    return True
+
+                return False
 
         else:
             is_duplicated = await self._is_duplicated(emb_schema)
@@ -139,7 +142,7 @@ class BaseFilter(EmbeddingMixin):
         self, entity_id: str | int, entity_type: Literal['news', 'game', 'reddit'], data: dict | BaseModel
     ) -> None:
         """The method updates the result of the filter for the entity in the checked entities repository"""
-        data = data if isinstance(data, dict) else data.model_dump()
+        data = data if isinstance(data, dict) else data.model_dump(exclude={'id'})
         await self._checked_entity_repo.update({'entity_id': entity_id, 'type': entity_type}, data)
 
     async def _add_to_checked(

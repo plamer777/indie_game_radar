@@ -56,6 +56,7 @@ RANKED_REDDIT_POSTS_COLLECTION = "ranked_reddit_posts"
 IGDB_META_COLLECTION = "igdb_meta"
 GAME_PUBLICATIONS_COLLECTION = "game_publications"
 NEWS_PUBLICATIONS_COLLECTION = "news_publications"
+REDDIT_PUBLICATIONS_COLLECTION = "news_publications"
 CHECKED_ENTITIES_COLLECTION = "checked_entities"
 DISCOUNT_PUBLICATIONS_COLLECTION = "discount_publications"
 APPS_COLLECTION = "steam_apps"
@@ -615,7 +616,10 @@ REDDIT_DEV_FILTER_BAD_FLAIRS = ["update", "patch", "bugfix", "hiring", "release"
 REDDIT_GAME_DEV_FILTER_RATING_MIN = 0.6
 # ---------------------------------------------------------------------------------------------------------------------
 # Publication
-DEFAULT_DAILY_POSTS = 6
+DEFAULT_DAILY_POSTS = 10
+ALLOCATION_START_HOUR = 8
+ALLOCATION_END_HOUR = 12
+PUBLICATION_SCHEDULER_DELAY = SECONDS_IN_MINUTE * 5
 TIME_WINDOWS = {
     "morning": (8, 12),  # 8:00 - 12:00
     "day": (12, 18),  # 12:00 - 18:00
@@ -624,10 +628,32 @@ TIME_WINDOWS = {
 
 # Базовые приоритеты по времени суток
 TIME_PRIORITIES = {
-    "morning": {"news": 0.1, "reddit_posts": 0.2, "games": 0.25, "discounts": 0.15, "reddit_memes": 0.3},
-    "day": {"news": 0.2, "games": 0.2, "discounts": 0.2, "reddit_posts": 0.2, "reddit_memes": 0.2},
-    "evening": {"news": 0.1, "games": 0.3, "discounts": 0.3, "reddit_posts": 0.1, "reddit_memes": 0.2},
+    "morning": {"news": 0.1, "reddit_posts": 0.35, "games": 0.0, "discounts": 0.15, "reddit_memes": 0.4},
+    "day": {"news": 0.3, "games": 0.1, "discounts": 0.2, "reddit_posts": 0.2, "reddit_memes": 0.3},
+    "evening": {"news": 0.1, "games": 0.1, "discounts": 0.3, "reddit_posts": 0.3, "reddit_memes": 0.2},
 }
+
+EDITORIAL_REFINER_GAME_POST = """
+You are a creative marketing writer for a Telegram gaming channel called Indie Game Radar.
+Take the following raw description and turn it into a visually appealing Telegram post.
+Make it lively, easy to read, and engaging, while keeping the original tone and key facts.
+Add emojis that match the context (🎮, 🔥, 🧭, ⚙️, etc.), and split it into logical sections with clear headers.
+
+The post should look like a formatted Telegram message — compact, readable, and with natural line breaks. Use only
+Telegram allowed HTML tags. Text should be formatter **ONLY USING HTML TAGS APPROPRIATE FOR TELEGRAM POSTS**
+
+Input:
+Title: "{title}"
+Content: "{content}"
+
+Output:
+Return your rewritten text **strictly in JSON** format like this:
+{{
+  "title": "Rewritten catchy title for Telegram post",
+  "content": "Rewritten description written in natural human language using Telegram HTML format"
+}}
+Do not add any explanations, comments, or text outside this JSON.
+"""
 
 EDITORIAL_REFINER_STEAM_NEWS_PROMPT = """
 You are a professional gaming journalist specializing in indie games. 
@@ -648,10 +674,10 @@ Content: "{content}"
 
 Output:
 Return your rewritten text **strictly in JSON** format like this:
-{
+{{
   "title": "Rewritten catchy title for Telegram post",
   "content": "Short engaging summary (3–5 sentences) written in natural human language."
-}
+}}
 Do not add any explanations, comments, or text outside this JSON.
 """
 
@@ -673,10 +699,10 @@ Content: "{content}"
 
 Output:
 Return the rewritten version strictly in JSON format like this:
-{
+{{
   "title": "Improved, catchy title",
   "content": "Medium rewritten summary as if told by a journalist for Telegram readers."
-}
+}}
 Do not include any explanations or text outside this JSON.
 """
 
@@ -698,12 +724,15 @@ Content: "{content}"
 
 Output:
 Return your rewritten result strictly in JSON format like this:
-{
+{{
   "title": "Refined, readable title",
   "content": "A summary conveying the essence of the post and key insights for Telegram readers."
-}
+}}
 Do not add explanations, extra words, or anything outside the JSON.
 """
 # ---------------------------------------------------------------------------------------------------------------------
 # Editorial Refiner
 EDITORIAL_REFINER_MODEL = "gpt-4o-mini"
+
+# Embedding mixin settings
+DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small'

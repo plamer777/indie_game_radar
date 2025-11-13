@@ -6,10 +6,8 @@ import re
 from functools import wraps
 from typing import Callable, Optional
 from uuid import uuid4
-
+import markdown
 from bs4 import BeautifulSoup
-
-
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -22,6 +20,61 @@ def safe_div(a: float, b: float, default: float = 0.0) -> float:
 
 def clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, v))
+
+
+def clean_text(raw_text: str, max_paragraphs: int = 1) -> str:
+    """
+    Универсальная очистка HTML/Markdown описаний игр для публикации в Telegram.
+    """
+    if not raw_text:
+        return ""
+
+    text = raw_text.strip()
+
+    # --- 1. Преобразуем Markdown → HTML (если есть markdown-разметка)
+    if any(sym in text for sym in ['**', '*', '_', '[', ']', '(', ')', '#', '`']):
+        try:
+            text = markdown.markdown(text)
+        except Exception:
+            pass
+
+    # --- 2. Парсим HTML и достаём чистый текст с минимальной структурой
+    soup = BeautifulSoup(text, "html.parser")
+
+    # Сохраняем базовую структуру (заголовки, списки, абзацы)
+    for br in soup.find_all("br"):
+        br.replace_with("\n")
+    for p in soup.find_all("p"):
+        p.insert_before("\n\n")
+    for li in soup.find_all("li"):
+        li.insert_before("• ")
+    for hr in soup.find_all("hr"):
+        hr.replace_with("\n— — —\n")
+
+    # --- 3. Убираем всё лишнее (теги, скрипты и т.д.)
+    cleaned = soup.get_text(separator=" ", strip=True)
+
+    # --- 4. Форматируем: удаляем лишние пробелы и повторяющиеся переносы
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+    cleaned = re.sub(r'\s{2,}', ' ', cleaned)
+
+    # --- 5. Поддерживаем простое Markdown-форматирование для Telegram
+    # (оставляем *, _, `, но убираем лишние)
+    cleaned = re.sub(r'(?<!\S)\*(?!\S)', '', cleaned)  # одиночные * без пар
+    cleaned = re.sub(r'(?<!\S)_(?!\S)', '', cleaned)
+
+    # --- 6. Обрезаем до разумного числа абзацев
+    paragraphs = [p.strip() for p in cleaned.split("\n") if p.strip()]
+    if len(paragraphs) > max_paragraphs:
+        paragraphs = paragraphs[:max_paragraphs]
+        paragraphs.append("…")
+
+    final_text = "\n\n".join(paragraphs)
+
+    # --- 7. Финальная чистка и аккуратная подача
+    final_text = final_text.strip()
+    final_text = re.sub(r'([^\n])\n([^\n])', r'\1\n\n\2', final_text)  # больше воздуха
+    return final_text
 
 
 def execute_in_thread(coro: Callable) -> Callable:

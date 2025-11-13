@@ -5,7 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 from src.config.constants import GAMES_COLLECTION, IGDB_META_COLLECTION, GAME_PUBLICATIONS_COLLECTION, APPS_COLLECTION, \
     GAME_SNAPSHOTS_COLLECTION, NEWS_PUBLICATIONS_COLLECTION, DISCOUNT_PUBLICATIONS_COLLECTION, RANKED_GAMES_COLLECTION, \
-    REDDIT_POSTS_COLLECTION, RANKED_REDDIT_POSTS_COLLECTION, CHECKED_ENTITIES_COLLECTION
+    REDDIT_POSTS_COLLECTION, RANKED_REDDIT_POSTS_COLLECTION, CHECKED_ENTITIES_COLLECTION, REDDIT_PUBLICATIONS_COLLECTION
 from src.db.repositories.base_repo import BaseRepository
 from src.models.game import GameModel, AppModel, GameSnapshot, RankedGameModel
 from src.models import IGDBMeta, RedditPost, RankedRedditPost, CheckedEntity
@@ -151,7 +151,7 @@ class NewsPublicationRepository(BaseRepository[NewsPublicationRecord]):
 
 class RedditPostPublicationRepository(BaseRepository[RedditPostPublication]):
     def __init__(
-        self, collection_name: str = NEWS_PUBLICATIONS_COLLECTION,
+        self, collection_name: str = REDDIT_PUBLICATIONS_COLLECTION,
         model: type[RedditPostPublication] = RedditPostPublication,
         db: AsyncIOMotorDatabase | None = None
     ) -> None:

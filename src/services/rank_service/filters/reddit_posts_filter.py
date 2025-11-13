@@ -24,20 +24,13 @@ class RedditPostFilter(BaseFilter):
         gpt_model: str = C.REDDIT_FILTER_GPT_MODEL,
         prompt_template: str = C.REDDIT_FILTER_PROMPT_TEMPLATE
     ):
-        super().__init__(open_ai_client, gpt_model, checked_entity_repo = checked_entity_repo)
+        super().__init__(
+            open_ai_client, gpt_model, checked_entity_repo = checked_entity_repo,
+            embedding_model = embedding_model
+        )
         self.time_window = timedelta(hours=time_window_hours)
         self.similarity_threshold = similarity_threshold
-        self.embedding_model = embedding_model
         self._prompt_template = prompt_template
-
-    async def _get_embedding(self, text: str) -> np.ndarray:
-        if not text.strip():
-            return np.zeros(1536)
-        response = await self._open_ai_client.embeddings.create(
-            model=self.embedding_model,
-            input=text
-        )
-        return np.array(response.data[0].embedding)
 
     async def filter_posts(
         self,
@@ -47,7 +40,7 @@ class RedditPostFilter(BaseFilter):
         now = datetime.now()
 
         if not self._is_indie_game(game):
-            raise StopAsyncIteration
+            return
 
         # 1️⃣ Базовая фильтрация по времени и минимальным метрикам
         for p in posts:

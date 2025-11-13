@@ -310,6 +310,7 @@ class RankEngineService(BaseService):
             except Exception as e:
                 cycle_log.error(f"Error filtering reddit posts for game {game.steam_appid}: {e}")
 
+        self._reddit_post_filter.clean()
         return unpublished
 
     async def filter_game_dev_reddit_posts(self, top_n: int) -> list[RedditPostPublicationSchema]:
@@ -334,7 +335,7 @@ class RankEngineService(BaseService):
 
             except Exception as e:
                 cycle_log.error(f"Error filtering game dev reddit posts {post.reddit_id}: {e}")
-
+        self._reddit_dev_post_filter.clean()
         return unpublished
 
     async def filter_game_meme_reddit_posts(self, top_n: int) -> list[RedditPostPublicationSchema]:

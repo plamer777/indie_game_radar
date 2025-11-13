@@ -8,6 +8,7 @@ from src.schemas import AllocatedPostsSchema
 from src.services.base_service import BaseService
 from src.services.publisher_service.editors import EditorialRefiner
 from src.services.publisher_service.renderers.tg_post_renderer import PostRenderer
+from src.utils.common import clean_text
 from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -34,6 +35,7 @@ class PublisherService(BaseService):
             "discounts": self._discount_publication_repo,
             "news": self._news_publication_repo,
             "reddit_posts": self._reddit_post_publication_repo,
+            "reddit_memes": self._reddit_post_publication_repo,
         }
 
     async def schedule_publications(self, posts: list[AllocatedPostsSchema]):
@@ -53,19 +55,30 @@ class PublisherService(BaseService):
         publication_repo = self._repo_mapper.get(record.category)
         try:
             if record.category == 'news':
-                edited = await self._editor.refine(record.post.title, record.post.contents, 'news')
+                edited = await self._editor.refine(record.post.title, clean_text(record.post.contents), record.category)
                 record.post.title = edited.get('title')
                 record.post.contents = edited.get('content')
             elif record.category == 'reddit_posts':
-                post_type = f'reddit_post_{record.post.type}'
-                edited = await self._editor.refine(record.post.title, record.post.selftext, post_type)
+                post_type = f'{record.category}_{record.post.type}'
+                edited = await self._editor.refine(record.post.title, clean_text(record.post.selftext), post_type)
                 record.post.title = edited.get('title')
                 record.post.selftext = edited.get('content')
+            elif record.category == 'games':
+                edited = await self._editor.refine(
+                    record.post.name, clean_text(record.post.detailed_description), record.category
+                )
+                record.post.detailed_description = edited.get('content')
 
             text = self._renderer.render(record)
             if not publication_repo:
                 raise ValueError(f"Unsupported publication type: {record.category}")
-            msg_id = await self._publisher.publish_message(text, schedule_time=record.publish_time)
+
+            if record.category == 'reddit_memes':
+                photo = record.post.url or record.post.preview_images[0]
+                msg_id = await self._publisher.publish_photo(photo, text, schedule_time=record.publish_time)
+            else:
+                msg_id = await self._publisher.publish_message(text, schedule_time=record.publish_time)
+
             if msg_id:
                 record.post.message_id = msg_id
                 record.post.status = PublishStatus.published

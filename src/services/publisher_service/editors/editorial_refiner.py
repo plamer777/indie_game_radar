@@ -17,6 +17,7 @@ class EditorialRefiner:
             "news": C.EDITORIAL_REFINER_STEAM_NEWS_PROMPT,
             "reddit_posts_game_related": C.EDITORIAL_REFINER_REDDIT_GAME_POST_PROMPT,
             "reddit_posts_game_dev_story": C.EDITORIAL_REFINER_GAMEDEV_DISCUSSION_PROMPT,
+            "games": C.EDITORIAL_REFINER_GAME_POST,
         }
 
     async def refine(self, title: str, text: str, post_type: str) -> dict:
@@ -25,6 +26,9 @@ class EditorialRefiner:
         """
 
         prompt = self._build_prompt(title, text, post_type)
+        if not prompt:
+            return {'title': title, 'content': text}
+
         for _ in range(3):
             response = await self._client.chat.completions.create(
                 model=self._model,
@@ -42,9 +46,9 @@ class EditorialRefiner:
 
         return {'title': title, 'content': text}
 
-    def _build_prompt(self, title: str, text: str, post_type: str) -> str:
+    def _build_prompt(self, title: str, text: str, post_type: str) -> str | None:
         prompt_template = self._prompt_mapper.get(post_type)
         if not prompt_template:
-            raise ValueError(f"Unknown post type: {post_type}")
+            return None
 
         return prompt_template.format(title=title, content=text)

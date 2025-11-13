@@ -14,6 +14,7 @@ from src.templates import (
     REDDIT_POST_TEMPLATES,
 )
 from src.templates.reddit_meme_puplications import REDDIT_MEME_TEMPLATES
+from src.utils.common import clean_text
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -44,24 +45,26 @@ class PostRenderer:
         record_type = record.category.lower()
         if record_type not in self._builders:
             raise ValueError(f"Unsupported publication type: {record_type}")
-        return self._builders[record_type](record)
+        return self._builders[record_type](record.post)
 
     # ------------------------------------------------------------
     # --- GAME POST ---
     def _render_game_post(self, game: GamePublicationRecordSchema) -> str:
         context = {
             "name": game.name,
-            "short_description": game.short_description or game.detailed_description or "",
+            "short_description": game.detailed_description or game.short_description or "",
             "developers": ', '.join(game.developers or []) if game.developers else "-",
             "publishers": ', '.join(game.publishers or []) if game.publishers else "-",
             "genres": ', '.join(game.genres or []) if game.genres else "unique style",
             "platforms": [p for p, v in game.platforms.model_dump().items() if v] if game.platforms else "—",
-            "supported_languages": game.supported_languages or "—",
+            "supported_languages": clean_text(game.supported_languages) or "—",
             "release_date": game.release_date.strftime("%B %d, %Y") if game.release_date else "—",
             "website": game.website,
             "steam_appid": game.steam_appid,
-            "tags": ', '.join(game.tags or []) if game.tags else "—",
+            "tags": ', '.join(game.tags or []) if game.tags else None,
             "image_url": getattr(game, "header_image", None),
+            "recommendations": game.recommendations or '-',
+            "price": f'{game.price.final}$' if game.price else 'Free' if game.is_free else '-',
         }
 
         template = self.env.from_string(random.choice(GAME_POST_TEMPLATES))
@@ -75,10 +78,10 @@ class PostRenderer:
             "original_price": disc.old_price,
             "price": disc.new_price,
             "discount_percent": int(disc.percent_drop),
-            "short_description": disc.short_description or disc.detailed_description or "",
+            "short_description": disc.detailed_description or disc.short_description or "",
             "genres": ', '.join(disc.genres or []) if disc.genres else "unique style",
             "steam_appid": disc.steam_appid,
-            "tags": ', '.join(disc.tags or []) if disc.tags else "—",
+            "tags": ', '.join(disc.tags or []) if disc.tags else None,
             "image_url": getattr(disc, "header_image", None),
         }
 
@@ -97,6 +100,7 @@ class PostRenderer:
             "date": news.date.strftime("%B %d, %Y") if news.date else "—",
             "url": news.url,
             "image_url": getattr(news, "header_image", None),
+            "steam_appid": getattr(news, "appid", None),
         }
 
         template = self.env.from_string(random.choice(NEWS_POST_TEMPLATES))
@@ -114,6 +118,7 @@ class PostRenderer:
             "num_comments": post.num_comments or 0,
             "permalink": post.permalink or "",
             "image_url": post.preview_images[0] if post.preview_images else None,
+            "steam_appid": getattr(post, "steam_appid", None),
         }
 
         template = self.env.from_string(random.choice(REDDIT_POST_TEMPLATES))
@@ -122,8 +127,7 @@ class PostRenderer:
     def _render_meme_post(self, post: RedditPostPublicationSchema) -> str:
         context = {
             "title": post.title,
-            "subreddit": post.subreddit or "unknown",
-            "image_url": post.url or post.preview_images[0] if post.preview_images else None,
+            "subreddit": post.subreddit or "unknown"
         }
 
         template = self.env.from_string(random.choice(REDDIT_MEME_TEMPLATES))

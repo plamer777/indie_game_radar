@@ -7,6 +7,7 @@ from src.schemas import (
     DiscountPublicationSchema,
     RedditPostPublicationSchema, AllocatedPostsSchema,
 )
+from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -24,6 +25,7 @@ class ContentAllocationStrategy:
         reddit_posts: list[RedditPostPublicationSchema],
         reddit_memes: list[RedditPostPublicationSchema],
     ) -> None:
+        self._log = get_logger().bind(service="ContentAllocationStrategy")
         self.news = news or []
         self.games = games or []
         self.discounts = discounts or []
@@ -49,8 +51,8 @@ class ContentAllocationStrategy:
             start_time = today_start + timedelta(days=1)
             today_end = today_end + timedelta(days=1)
         else:
-            # начинаем с текущего времени
-            start_time = now
+            # начинаем с текущего времени + 15 минут
+            start_time = now + timedelta(minutes=15)
 
         return start_time, today_end
 

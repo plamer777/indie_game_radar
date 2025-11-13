@@ -43,5 +43,5 @@ class RedditMemeFilter:
             result.append(RedditPostPublicationSchema(**p.model_dump()))
 
         # сортировка по рейтингу, свежие — первыми
-        result.sort(key=lambda x: (x.last_score, x.created_utc), reverse=True)
+        result.sort(key=lambda x: x.created_utc, reverse=True)
         return result
