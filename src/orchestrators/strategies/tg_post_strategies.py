@@ -34,6 +34,36 @@ class ContentAllocationStrategy:
         self._reddit_memes = reddit_memes or []
         self._reviews = reviews or []
 
+    @property
+    def news(self) -> list[NewsPublicationSchema]:
+        """The list of news to be published."""
+        return self._news
+
+    @property
+    def games(self) -> list[GamePublicationRecordSchema]:
+        """The list of games to be published."""
+        return self._games
+
+    @property
+    def discounts(self) -> list[DiscountPublicationSchema]:
+        """The list of discounts to be published."""
+        return self._discounts
+
+    @property
+    def reddit_posts(self) -> list[RedditPostPublicationSchema]:
+        """The list of reddit posts to be published."""
+        return self._reddit_posts
+
+    @property
+    def reddit_memes(self) -> list[RedditPostPublicationSchema]:
+        """The list of reddit memes to be published."""
+        return self._reddit_memes
+
+    @property
+    def reviews(self) -> list[ReviewPublicationSchema]:
+        """The list of reviews to be published."""
+        return self._reviews
+
     # -------------------------------------------------------------------------
     # --------------------------- ВРЕМЯ И ИНТЕРВАЛЫ ----------------------------
     # -------------------------------------------------------------------------

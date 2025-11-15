@@ -30,8 +30,8 @@ class Orchestrator:
         self._scheduler = scheduler
 
     async def start(self):
-        await self._start_harvester()
-        await self._start_ranker()
+        # await self._start_harvester()
+        # await self._start_ranker()
         await self._run_cycle(top_n=C.DEFAULT_DAILY_POSTS)
 
         while True:
