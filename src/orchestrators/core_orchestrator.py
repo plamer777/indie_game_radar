@@ -94,6 +94,8 @@ class Orchestrator:
         discounts_to_publish = 0
         reddis_posts_to_publish = 0
         reddit_memes_to_publish = 0
+        pulished_today = await self._publisher.count_published_for_today()
+        top_n -= pulished_today
         allocated = []
         for attempt in range(5):
             filtered_games_to_publish = await self._rank_engine.filter_games(top_n)

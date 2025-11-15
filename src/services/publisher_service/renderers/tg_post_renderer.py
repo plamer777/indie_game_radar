@@ -15,15 +15,14 @@ from src.templates import (
 )
 from src.templates.reddit_meme_puplications import REDDIT_MEME_TEMPLATES
 from src.utils.common import clean_text
-
-
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class PostRenderer:
     """Universal Telegram post renderer using Jinja2"""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """The constructor for the PostRenderer class."""
         self.env = Environment(
             loader=BaseLoader(),
             autoescape=select_autoescape(enabled_extensions=('html', 'xml')),
@@ -50,13 +49,17 @@ class PostRenderer:
     # ------------------------------------------------------------
     # --- GAME POST ---
     def _render_game_post(self, game: GamePublicationRecordSchema) -> str:
+        """Renders a game post template.
+        :param game: The game to render
+        :return: The rendered game post template
+        """
         context = {
             "name": game.name,
             "short_description": game.detailed_description or game.short_description or "",
             "developers": ', '.join(game.developers or []) if game.developers else "-",
             "publishers": ', '.join(game.publishers or []) if game.publishers else "-",
             "genres": ', '.join(game.genres or []) if game.genres else "unique style",
-            "platforms": [p for p, v in game.platforms.model_dump().items() if v] if game.platforms else "—",
+            "platforms": ', '.join([p for p, v in game.platforms.model_dump().items() if v]) if game.platforms else "—",
             "supported_languages": clean_text(game.supported_languages) or "—",
             "release_date": game.release_date.strftime("%B %d, %Y") if game.release_date else "—",
             "website": game.website,
@@ -73,6 +76,10 @@ class PostRenderer:
     # ------------------------------------------------------------
     # --- DISCOUNT POST ---
     def _render_discount_post(self, disc: DiscountPublicationSchema) -> str:
+        """Renders a discount post template.
+        :param disc: The discount to render
+        :return: The rendered discount post template
+        """
         context = {
             "name": disc.name,
             "original_price": disc.old_price,
@@ -91,6 +98,10 @@ class PostRenderer:
     # ------------------------------------------------------------
     # --- NEWS POST ---
     def _render_news_post(self, news: NewsPublicationSchema) -> str:
+        """Renders a news post template.
+        :param news: The news to render
+        :return: The rendered news post template
+        """
         context = {
             "title": news.title,
             "contents": news.contents or "",
@@ -109,6 +120,10 @@ class PostRenderer:
     # ------------------------------------------------------------
     # --- REDDIT POST ---
     def _render_reddit_post(self, post: RedditPostPublicationSchema) -> str:
+        """Renders a Reddit post template.
+        :param post: The Reddit post to render
+        :return: The rendered Reddit post template
+        """
         context = {
             "title": post.title,
             "selftext": post.selftext or "",
@@ -116,6 +131,7 @@ class PostRenderer:
             "subreddit": post.subreddit or "unknown",
             "score": post.ups or 0,
             "num_comments": post.num_comments or 0,
+            "ups": post.ups or 0,
             "permalink": post.permalink or "",
             "image_url": post.preview_images[0] if post.preview_images else None,
             "steam_appid": getattr(post, "steam_appid", None),
@@ -125,6 +141,10 @@ class PostRenderer:
         return template.render(**context).strip()
 
     def _render_meme_post(self, post: RedditPostPublicationSchema) -> str:
+        """Renders a meme post template.
+        :param post: The meme post to render
+        :return: The rendered meme post template
+        """
         context = {
             "title": post.title,
             "subreddit": post.subreddit or "unknown"

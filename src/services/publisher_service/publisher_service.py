@@ -1,3 +1,5 @@
+from datetime import datetime, UTC
+
 from src.clients.telegram_client import TelegramPublisher
 from src.db.repositories import (
     GamePublicationRepository, DiscountPublicationRepository, NewsPublicationRepository,
@@ -37,6 +39,23 @@ class PublisherService(BaseService):
             "reddit_posts": self._reddit_post_publication_repo,
             "reddit_memes": self._reddit_post_publication_repo,
         }
+
+    async def count_published_for_today(self) -> int:
+        """Подсчитывает количество опубликованных постов за сегодня"""
+        start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+        end = datetime.now(UTC).replace(hour=23, minute=59, second=59, microsecond=999999)
+        params = {
+            "status": PublishStatus.published,
+            "created_at": {
+                "$gte": start,
+                "$lte": end,
+            },
+        }
+        published_games = await self._game_publication_repo.get_all(params)
+        published_discounts = await self._discount_publication_repo.get_all(params)
+        published_news = await self._news_publication_repo.get_all(params)
+        published_posts = await self._reddit_post_publication_repo.get_all(params)
+        return len(published_games) + len(published_discounts) + len(published_news) + len(published_posts)
 
     async def schedule_publications(self, posts: list[AllocatedPostsSchema]):
         """Публикует (или планирует) посты в соответствии с их временем"""

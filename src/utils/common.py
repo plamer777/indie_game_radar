@@ -22,6 +22,33 @@ def clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, v))
 
 
+def is_markdown(text: str) -> bool:
+    """
+    Checks whether the given text contains Markdown formatting.
+    """
+
+    if not text or not isinstance(text, str):
+        return False
+
+    markdown_patterns = [
+        r"\*\*[^*]+\*\*",        # bold: **text**
+        r"__[^_]+__",            # bold: __text__
+        r"\*[^*]+\*",            # italics: *text*
+        r"_[^_]+_",              # italics: _text_
+        r"`[^`]+`",              # inline code: `code`
+        r"```[\s\S]+```",        # code block: ```...```
+        r"\[[^\]]+\]\([^)]+\)",  # links: [text](url)
+        r"^#{1,6}\s",            # headings: # Title
+        r"!\[[^\]]*\]\([^)]+\)", # images: ![](url)
+        r"^\s*[-*+]\s",          # unordered list: - item
+        r"^\s*\d+\.\s",          # ordered list: 1. item
+        r">\s",                  # blockquote: > text
+    ]
+
+    return any(re.search(pattern, text, flags=re.MULTILINE)
+               for pattern in markdown_patterns)
+
+
 def clean_text(raw_text: str, max_paragraphs: int = 1) -> str:
     """
     Универсальная очистка HTML/Markdown описаний игр для публикации в Telegram.
