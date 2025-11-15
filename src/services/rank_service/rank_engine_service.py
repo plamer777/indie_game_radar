@@ -4,16 +4,17 @@ from openai import AsyncOpenAI
 from src.config import constants as C
 from src.db.repositories import GameRepository, GameSnapshotRepository, GamePublicationRepository, IGDBRepository
 from src.db.repositories.repositories import NewsPublicationRepository, DiscountPublicationRepository, \
-    RankedGameRepository, RedditPostRepository, RankedRedditPostRepository, RedditPostPublicationRepository
+    RankedGameRepository, RedditPostRepository, RankedRedditPostRepository, RedditPostPublicationRepository, \
+    ReviewPublicationRepository
 from src.models import RankedGameModel, GameModel
 from src.schemas import GamePublicationRecordSchema, NewsPublicationSchema, RankedGameSchema, \
-    RedditPostPublicationSchema, DiscountPublicationSchema
+    RedditPostPublicationSchema, DiscountPublicationSchema, ReviewPublicationSchema
 from src.schemas.reddit_schemas import RankedRedditPostSchema
 from src.services.base_service import BaseService
 from src.services.rank_service.adapters import NewsPublicationAdapter, RedditPublicationAdapter
 from src.services.shared_dependencies.calculators import NewsStatCalculator
 from src.services.rank_service.filters import GameFilter, NewsFilter, DiscountFilter, RedditPostFilter, \
-    RedditDevPostFilter, RedditMemeFilter
+    RedditDevPostFilter, RedditMemeFilter, GameReviewFilter
 from src.services.rank_service.rankers import NewsRanker, RedditPostRanker, RedditDevPostRanker, RedditMemeRanker
 from src.services.rank_service.rankers.ranker import GameRanker
 from src.utils.logging import get_logger
@@ -44,6 +45,8 @@ class RankEngineService(BaseService):
         reddit_meme_filter: RedditMemeFilter,
         reddit_meme_ranker: RedditMemeRanker,
         open_ai_client: AsyncOpenAI,
+        game_review_filter: GameReviewFilter,
+        review_publication_repo: ReviewPublicationRepository,
     ):
         super().__init__()
         self._log = get_logger().bind(service="rank_engine")
@@ -69,6 +72,8 @@ class RankEngineService(BaseService):
         self._reddit_dev_post_filter = reddit_dev_post_filter
         self._reddit_meme_ranker = reddit_meme_ranker
         self._reddit_meme_filter = reddit_meme_filter
+        self._game_review_filter = game_review_filter
+        self._review_publication_repo = review_publication_repo
         self._news_publication_adapter = NewsPublicationAdapter(
             open_ai_client=open_ai_client,
             news_publication_repo=news_publication_repo
@@ -278,6 +283,38 @@ class RankEngineService(BaseService):
                 cycle_log.error(f"Error filtering news for game {game.steam_appid}: {e}")
 
         self._news_filter.clean()
+        return unpublished
+
+    async def filter_reviews(self, top_n: int) -> list[ReviewPublicationSchema]:
+        cycle_log = self._log.bind(method="filter_reviews")
+        cycle_log.info("started")
+        now = datetime.now()
+        scored_games = await self._ranked_games_repo.get_all(
+            {
+                'last_score': {'$gte': C.REVIEWS_FILTER_GAME_RATING_MIN},
+                '$or': [
+                    {"release_date": {"$gte": now - timedelta(days=C.REVIEWS_FILTER_GAME_RELEASE_DATE_DELTA_DAYS)}},
+                    {"release_date": None}
+                ]
+            },
+            sort_by={'last_score': -1}, generator_mode=True
+        )
+        unpublished = []
+        async for game in scored_games:
+            try:
+                filtered = self._game_review_filter.filter_reviews(game)
+                if not filtered:
+                    continue
+
+                if not await self._review_publication_repo.was_published(filtered.steam_appid):
+                    unpublished.append(filtered)
+
+                    if len(unpublished) >= top_n:
+                        return unpublished
+
+            except Exception as e:
+                cycle_log.error(f"Error filtering reviews for game {game.steam_appid}: {e}")
+
         return unpublished
 
     async def filter_reddit_posts(self, top_n: int) -> list[RedditPostPublicationSchema]:

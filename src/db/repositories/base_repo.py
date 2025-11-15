@@ -10,6 +10,9 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, TypeAdapter
 from src.db.mongo import get_database
 from src.config.constants import STATIC_FIELDS, IGNORED_FIELDS
+from src.models import PublishStatus
+from src.schemas.base import BaseSchema
+
 # -------------------------------------------------------------------------
 UTC = timezone.utc
 M = TypeVar('M', bound=BaseModel)
@@ -54,6 +57,20 @@ class BaseRepository(AbstractRepository, Generic[M]):
         self._collection = db[collection]
         self._model = model
         self._adapter = TypeAdapter(model) if model else None
+
+    async def mark_published(self, record: BaseSchema, search_field: str = '_id') -> None:
+        data = record.model_dump()
+        data["status"] = PublishStatus.published
+        data["updated_at"] = datetime.now()
+        await self.add_or_update(data, search_field=search_field)
+
+    async def mark_failed(self, record: BaseSchema, error: str, search_field: str = '_id') -> None:
+        data = record.model_dump()
+        data["status"] = PublishStatus.failed
+        data["error"] = error
+        data["attempt"] = data.get("attempt", 0) + 1
+        data["updated_at"] = datetime.now()
+        await self.add_or_update(data, search_field=search_field)
 
     async def add_new(self, data: dict) -> M | dict:
         """This method adds a new record to the database

@@ -1,6 +1,6 @@
 from .game_schemas import GameSnapshotSchema, GameSchema, RankedGameSchema
 from .publication_schemas import GamePublicationRecordSchema, NewsPublicationSchema, DiscountPublicationSchema, \
-    RedditPostPublicationSchema, AllocatedPostsSchema
+    RedditPostPublicationSchema, AllocatedPostsSchema, ReviewPublicationSchema
 from .reddit_schemas import RedditPostSchema, RankedRedditPostSchema
 from .checked_record_schemas import CheckedEntitySchema, DeduplicationSchema
 # ---------------------------------------------------------------------------------------------------------------------
@@ -17,6 +17,7 @@ __all__ = [
     "DiscountPublicationSchema",
     "AllocatedPostsSchema",
     "CheckedEntitySchema",
-    "DeduplicationSchema"
+    "DeduplicationSchema",
+    "ReviewPublicationSchema"
 
 ]

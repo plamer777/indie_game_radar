@@ -5,7 +5,7 @@ from src.db.repositories import (
     GamePublicationRepository, DiscountPublicationRepository, NewsPublicationRepository,
     RedditPostPublicationRepository
 )
-from src.models.publication import PublishStatus
+from src.models.publication import PublishStatus, ReviewSummary
 from src.schemas import AllocatedPostsSchema
 from src.services.base_service import BaseService
 from src.services.publisher_service.editors import EditorialRefiner
@@ -74,19 +74,36 @@ class PublisherService(BaseService):
         publication_repo = self._repo_mapper.get(record.category)
         try:
             if record.category == 'news':
-                edited = await self._editor.refine(record.post.title, clean_text(record.post.contents), record.category)
+                params = {
+                    "title": record.post.title,
+                    "content": clean_text(record.post.contents),
+                }
+                edited = await self._editor.refine(record.category, **params)
                 record.post.title = edited.get('title')
                 record.post.contents = edited.get('content')
             elif record.category == 'reddit_posts':
+                params = {
+                    "title": record.post.title,
+                    "content": clean_text(record.post.selftext),
+                }
                 post_type = f'{record.category}_{record.post.type}'
-                edited = await self._editor.refine(record.post.title, clean_text(record.post.selftext), post_type)
+                edited = await self._editor.refine(post_type, **params)
                 record.post.title = edited.get('title')
                 record.post.selftext = edited.get('content')
             elif record.category == 'games':
-                edited = await self._editor.refine(
-                    record.post.name, clean_text(record.post.detailed_description), record.category
-                )
+                params = {
+                    "title": record.post.name,
+                    "content": clean_text(record.post.detailed_description),
+                }
+                edited = await self._editor.refine(record.category, **params)
                 record.post.detailed_description = edited.get('content')
+            elif record.category == 'reviews':
+                params = {
+                    "game": record.post.game_name,
+                    "reviews": [review.model_dump() for review in record.post.reviews or []],
+                }
+                edited = await self._editor.refine(record.category, **params)
+                record.post.summary = ReviewSummary(**edited)
 
             text = self._renderer.render(record)
             if not publication_repo:

@@ -26,25 +26,25 @@ class EditorialRefiner:
             "reddit_posts_game_related": C.EDITORIAL_REFINER_REDDIT_GAME_POST_PROMPT,
             "reddit_posts_game_dev_story": C.EDITORIAL_REFINER_GAMEDEV_DISCUSSION_PROMPT,
             "games": C.EDITORIAL_REFINER_GAME_POST,
+            "reviews": C.EDITORIAL_REFINER_REVIEW_PROMPT,
         }
         self._log = get_logger().bind(service="EditorialRefiner")
 
     async def refine(
-        self, title: str, text: str,
-        post_type: Literal["news", "reddit_posts_game_related", "reddit_posts_game_dev_story", "games"]
+        self,
+        post_type: Literal["news", "reddit_posts_game_related", "reddit_posts_game_dev_story", "games", "reviews"],
+        **kwargs
     ) -> dict:
         """
         The method uses GPT to rewrite and polish post text in a professional journalistic style
         suitable for the Telegram channel.
-        :param title: The title of the post
-        :param text: The text of the post
+        :param kwargs: The parameters for the prompt template
         :param post_type: The type of the post
         Returns rewritten {'title': str, 'body': str}
         """
-
-        prompt = self._build_prompt(title, text, post_type)
+        prompt = self._build_prompt(kwargs, post_type)
         if not prompt:
-            return {'title': title, 'content': text}
+            return dict(kwargs)
 
         for _ in range(3):
             try:
@@ -73,12 +73,11 @@ class EditorialRefiner:
             except Exception as e:
                 self._log.error("refine_failed", error=str(e))
 
-        return {'title': title, 'content': text}
+        return dict(kwargs)
 
-    def _build_prompt(self, title: str, text: str, post_type: str) -> str | None:
+    def _build_prompt(self, params: dict, post_type: str) -> str | None:
         """The method builds the prompt template for the given post type
-        :param title: The title of the post
-        :param text: The text of the post
+        :param params: The parameters for the prompt template
         :param post_type: The type of the post
         :return: The prompt template for the given post type
         """
@@ -86,4 +85,4 @@ class EditorialRefiner:
         if not prompt_template:
             return None
 
-        return prompt_template.format(title=title, content=text)
+        return prompt_template.format(**params)

@@ -2,10 +2,12 @@ from __future__ import annotations
 from typing import Optional
 from datetime import datetime
 from enum import StrEnum
-from pydantic import Field
+from pydantic import Field, BaseModel
 from src.config import constants as C
 from src.models.base import BaseDBModel
-from src.models.game import PriceInfo, SteamExtendedInfo, PlatformsInfo
+from src.models.game import PriceInfo, SteamExtendedInfo, PlatformsInfo, ReviewItem
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -119,3 +121,33 @@ class RedditPostPublication(BaseDBModel):
     link_flair_text: Optional[str] = None
     extract_snippet: Optional[str] = None
     embedding: Optional[list[float]] = None
+
+
+class ReviewSummary(BaseModel):
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    sentiment_score: Optional[float] = None
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    common_requests: list[str] = []
+    notable_quotes: list[dict] = []
+    surprises: list[str] = []
+    confidence: Optional[str] = None
+
+
+class ReviewPublication(BaseDBModel):
+    channel: str = C.DEFAULT_TELEGRAM_CHANNEL
+    status: PublishStatus = PublishStatus.pending
+    message_id: Optional[str] = None
+    attempt: int = 0
+    error: Optional[str] = None
+    steam_appid: int
+    game_name: str
+    image: Optional[str] = None
+    total_reviews: Optional[int]
+    total_negative: Optional[int]
+    total_positive: Optional[int]
+    review_score: Optional[int]
+    ratio: Optional[float]
+    reviews: list[ReviewItem]
+    summary: Optional[ReviewSummary] = None

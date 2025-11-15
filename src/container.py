@@ -6,14 +6,16 @@ from src.clients.telegram_client import TelegramPublisher
 from src.config.settings import settings
 from src.db.repositories import GameRepository, IGDBRepository, GamePublicationRepository, AppRepository, \
     GameSnapshotRepository, NewsPublicationRepository, DiscountPublicationRepository, RankedGameRepository, \
-    RedditPostRepository, RankedRedditPostRepository, RedditPostPublicationRepository, CheckedEntityRepository
+    RedditPostRepository, RankedRedditPostRepository, RedditPostPublicationRepository, CheckedEntityRepository, \
+    ReviewPublicationRepository
 from src.managers.cache import RedisCache
 from src.orchestrators.core_orchestrator import Orchestrator
 from src.scheduler.scheduler import AsyncScheduler
 from src.services.data_service import APIHarvesterService
 from src.services.publisher_service import PublisherService
 from src.services.publisher_service.editors import EditorialRefiner
-from src.services.rank_service.filters import DiscountFilter, RedditPostFilter, RedditDevPostFilter, RedditMemeFilter
+from src.services.rank_service.filters import DiscountFilter, RedditPostFilter, RedditDevPostFilter, RedditMemeFilter, \
+    GameReviewFilter
 from src.services.rank_service.filters.filter import GameFilter
 from src.services.rank_service.filters.news_filter import NewsFilter
 from src.services.rank_service.rank_engine_service import RankEngineService
@@ -42,6 +44,7 @@ reddit_post_repo = RedditPostRepository()
 ranked_reddit_posts_repo = RankedRedditPostRepository()
 reddit_post_publication_repo = RedditPostPublicationRepository()
 checked_entity_repo = CheckedEntityRepository()
+review_publication_repo = ReviewPublicationRepository()
 
 
 # Clients/helpers
@@ -61,6 +64,7 @@ reddit_dev_post_filter = RedditDevPostFilter(client, checked_entity_repo=checked
 editorial_refiner = EditorialRefiner(client)
 reddit_meme_filter = RedditMemeFilter()
 reddit_meme_ranker = RedditMemeRanker()
+game_review_filter = GameReviewFilter()
 
 # Services
 api_harvester = APIHarvesterService(
@@ -97,6 +101,8 @@ rank_engine = RankEngineService(
     reddit_meme_ranker=reddit_meme_ranker,
     reddit_meme_filter=reddit_meme_filter,
     open_ai_client=client,
+    game_review_filter=game_review_filter,
+    review_publication_repo=review_publication_repo,
 )
 
 publisher = PublisherService(

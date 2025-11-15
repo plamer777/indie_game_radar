@@ -5,7 +5,7 @@ from src.schemas import (
     GamePublicationRecordSchema,
     NewsPublicationSchema,
     DiscountPublicationSchema,
-    RedditPostPublicationSchema, AllocatedPostsSchema,
+    RedditPostPublicationSchema, AllocatedPostsSchema, ReviewPublicationSchema,
 )
 from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
@@ -24,13 +24,15 @@ class ContentAllocationStrategy:
         discounts: list[DiscountPublicationSchema],
         reddit_posts: list[RedditPostPublicationSchema],
         reddit_memes: list[RedditPostPublicationSchema],
+        reviews: list[ReviewPublicationSchema],
     ) -> None:
         self._log = get_logger().bind(service="ContentAllocationStrategy")
-        self.news = news or []
-        self.games = games or []
-        self.discounts = discounts or []
-        self.reddit_posts = reddit_posts or []
-        self.reddit_memes = reddit_memes or []
+        self._news = news or []
+        self._games = games or []
+        self._discounts = discounts or []
+        self._reddit_posts = reddit_posts or []
+        self._reddit_memes = reddit_memes or []
+        self._reviews = reviews or []
 
     # -------------------------------------------------------------------------
     # --------------------------- ВРЕМЯ И ИНТЕРВАЛЫ ----------------------------
@@ -90,11 +92,12 @@ class ContentAllocationStrategy:
     def _redistribute_if_needed(self, allocation: dict[str, int]) -> dict[str, int]:
         """Если контента не хватает, перераспределяет в пользу других категорий."""
         available = {
-            "news": len(self.news),
-            "games": len(self.games),
-            "discounts": len(self.discounts),
-            "reddit_posts": len(self.reddit_posts),
-            "reddit_memes": len(self.reddit_memes)
+            "news": len(self._news),
+            "games": len(self._games),
+            "discounts": len(self._discounts),
+            "reddit_posts": len(self._reddit_posts),
+            "reddit_memes": len(self._reddit_memes),
+            "reviews": len(self._reviews)
         }
 
         deficit = {}

@@ -4,8 +4,8 @@ from typing import Optional, Union
 from pydantic import Field
 from typing_extensions import Literal
 from src.config import constants as C
-from src.models.game import PriceInfo, SteamExtendedInfo, PlatformsInfo
-from src.models.publication import PublishStatus
+from src.models.game import PriceInfo, SteamExtendedInfo, PlatformsInfo, ReviewItem
+from src.models.publication import PublishStatus, ReviewSummary
 from src.schemas.base import BaseSchema
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -119,9 +119,28 @@ class RedditPostPublicationSchema(BaseSchema):
     embedding: Optional[list[float]] = None
 
 
+class ReviewPublicationSchema(BaseSchema):
+    channel: str = C.DEFAULT_TELEGRAM_CHANNEL
+    status: PublishStatus = PublishStatus.pending
+    message_id: Optional[str] = None
+    attempt: int = 0
+    error: Optional[str] = None
+    steam_appid: int
+    game_name: str
+    image: Optional[str] = None
+    total_reviews: Optional[int]
+    total_negative: Optional[int]
+    total_positive: Optional[int]
+    review_score: Optional[int]
+    ratio: Optional[float]
+    reviews: list[ReviewItem]
+    summary: Optional[ReviewSummary] = None
+
+
 class AllocatedPostsSchema(BaseSchema):
     category: str
     post: Union[
-        GamePublicationRecordSchema, NewsPublicationSchema, DiscountPublicationSchema, RedditPostPublicationSchema
+        GamePublicationRecordSchema, NewsPublicationSchema, DiscountPublicationSchema, RedditPostPublicationSchema,
+        ReviewPublicationSchema
     ]
     publish_time: datetime | None = None

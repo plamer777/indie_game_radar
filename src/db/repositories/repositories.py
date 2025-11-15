@@ -5,12 +5,13 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 from src.config.constants import GAMES_COLLECTION, IGDB_META_COLLECTION, GAME_PUBLICATIONS_COLLECTION, APPS_COLLECTION, \
     GAME_SNAPSHOTS_COLLECTION, NEWS_PUBLICATIONS_COLLECTION, DISCOUNT_PUBLICATIONS_COLLECTION, RANKED_GAMES_COLLECTION, \
-    REDDIT_POSTS_COLLECTION, RANKED_REDDIT_POSTS_COLLECTION, CHECKED_ENTITIES_COLLECTION, REDDIT_PUBLICATIONS_COLLECTION
+    REDDIT_POSTS_COLLECTION, RANKED_REDDIT_POSTS_COLLECTION, CHECKED_ENTITIES_COLLECTION, \
+    REDDIT_PUBLICATIONS_COLLECTION, REVIEW_PUBLICATIONS_COLLECTION
 from src.db.repositories.base_repo import BaseRepository
 from src.models.game import GameModel, AppModel, GameSnapshot, RankedGameModel
 from src.models import IGDBMeta, RedditPost, RankedRedditPost, CheckedEntity
 from src.models.publication import GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication, \
-    RedditPostPublication
+    RedditPostPublication, ReviewPublication
 from src.config import constants as C
 from src.schemas import GamePublicationRecordSchema, NewsPublicationSchema, RedditPostPublicationSchema, \
     DiscountPublicationSchema
@@ -81,20 +82,13 @@ class GamePublicationRepository(BaseRepository[GamePublicationRecord]):
     ) -> None:
         super().__init__(collection_name, model, db)
 
+    async def mark_published(self, record: GamePublicationRecordSchema, search_field: str = 'steam_appid') -> None:
+        await super().mark_published(record, search_field=search_field)
 
-    async def mark_published(self, record: GamePublicationRecordSchema) -> None:
-        data = record.model_dump()
-        data["status"] = PublishStatus.published
-        data["updated_at"] = datetime.now()
-        await self.add_or_update(data, search_field="steam_appid")
-
-    async def mark_failed(self, record: GamePublicationRecordSchema, error: str) -> None:
-        data = record.model_dump()
-        data["status"] = PublishStatus.failed
-        data["error"] = error
-        data["attempt"] = data.get("attempt", 0) + 1
-        data["updated_at"] = datetime.now()
-        await self.add_or_update(data, search_field="steam_appid")
+    async def mark_failed(
+        self, record: GamePublicationRecordSchema, error: str, search_field: str = 'steam_appid'
+    ) -> None:
+        await super().mark_failed(record, error, search_field=search_field)
 
     async def was_published(self, steam_appid: int, channel: str = "telegram") -> bool:
         doc = await self._collection.find_one(
@@ -118,6 +112,28 @@ class AppRepository(BaseRepository[AppModel]):
         db: AsyncIOMotorDatabase | None = None
     ) -> None:
         super().__init__(collection_name, model, db)
+
+
+class ReviewPublicationRepository(BaseRepository[ReviewPublication]):
+    def __init__(
+        self, collection_name: str = REVIEW_PUBLICATIONS_COLLECTION, model: type[ReviewPublication] = ReviewPublication,
+        db: AsyncIOMotorDatabase | None = None
+    ) -> None:
+        super().__init__(collection_name, model, db)
+
+    async def mark_published(self, record: GamePublicationRecordSchema, search_field: str = 'steam_appid') -> None:
+        await super().mark_published(record, search_field=search_field)
+
+    async def mark_failed(
+        self, record: GamePublicationRecordSchema, error: str, search_field: str = 'steam_appid'
+    ) -> None:
+        await super().mark_failed(record, error, search_field=search_field)
+
+    async def was_published(self, steam_appid: int, channel: str = "telegram") -> bool:
+        doc = await self._collection.find_one(
+            {"steam_appid": steam_appid, "channel": channel, "status": PublishStatus.published}
+        )
+        return doc is not None
 
 
 class NewsPublicationRepository(BaseRepository[NewsPublicationRecord]):

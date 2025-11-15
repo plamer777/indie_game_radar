@@ -55,8 +55,9 @@ REDDIT_POSTS_COLLECTION = "reddit_posts"
 RANKED_REDDIT_POSTS_COLLECTION = "ranked_reddit_posts"
 IGDB_META_COLLECTION = "igdb_meta"
 GAME_PUBLICATIONS_COLLECTION = "game_publications"
+REVIEW_PUBLICATIONS_COLLECTION = "review_publications"
 NEWS_PUBLICATIONS_COLLECTION = "news_publications"
-REDDIT_PUBLICATIONS_COLLECTION = "news_publications"
+REDDIT_PUBLICATIONS_COLLECTION = "reddit_publications"
 CHECKED_ENTITIES_COLLECTION = "checked_entities"
 DISCOUNT_PUBLICATIONS_COLLECTION = "discount_publications"
 APPS_COLLECTION = "steam_apps"
@@ -468,6 +469,10 @@ REDDIT_MEME_RANKER_MIN_DECAY = 0.3               # минимальное зна
 REDDIT_MEME_RANKER_MAX_UPS = 50000               # верхний предел апвоутов (для лог-нормализации)
 REDDIT_MEME_RANKER_MAX_COMMENTS = 2000           # верхний предел комментариев (для лог-нормализации)
 # ---------------------------------------------------------------------------------------------------------------------
+# Reviews filter
+REVIEWS_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 365
+REVIEWS_FILTER_GAME_RATING_MIN = 0.3
+# ---------------------------------------------------------------------------------------------------------------------
 # News filter
 NEWS_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
 NEWS_FILTER_DUPLICATION_CHECKING_MAX_AGE_DAYS = 30
@@ -628,9 +633,15 @@ TIME_WINDOWS = {
 
 # Базовые приоритеты по времени суток
 TIME_PRIORITIES = {
-    "morning": {"news": 0.1, "reddit_posts": 0.35, "games": 0.0, "discounts": 0.15, "reddit_memes": 0.4},
-    "day": {"news": 0.3, "games": 0.1, "discounts": 0.2, "reddit_posts": 0.2, "reddit_memes": 0.3},
-    "evening": {"news": 0.1, "games": 0.1, "discounts": 0.3, "reddit_posts": 0.3, "reddit_memes": 0.2},
+    "morning": {
+        "news": 0.1, "reddit_posts": 0.35, "games": 0.0, "discounts": 0.15, "reddit_memes": 0.4, "reviews": 0.0
+    },
+    "day": {
+        "news": 0.2, "games": 0.1, "discounts": 0.2, "reddit_posts": 0.2, "reddit_memes": 0.3, "reviews": 0.1
+    },
+    "evening": {
+        "news": 0.1, "games": 0.1, "discounts": 0.3, "reddit_posts": 0.3, "reddit_memes": 0.2, "reviews": 0.0
+    },
 }
 
 EDITORIAL_REFINER_GAME_POST = """
@@ -729,6 +740,42 @@ Return your rewritten result strictly in JSON format like this:
   "content": "A summary conveying the essence of the post and key insights for Telegram readers."
 }}
 Do not add explanations, extra words, or anything outside the JSON.
+"""
+
+EDITORIAL_REFINER_REVIEW_PROMPT = """
+You are an analyst who summarizes player sentiment from community reviews.
+INPUT:
+- Game title: "{game}"
+- Selected reviews: {reviews} # array of objects [{"author_id": "...", "text": "...", "language": "english", "votes_up": 41, "votes_funny": 0, "timestamp": 1762791739}, ... ]
+
+TASK:
+Using only the provided selected reviews and metadata, produce a concise, honest, and balanced summary of player sentiment about the game. Output MUST be valid JSON **only** (no prose outside JSON). The JSON must follow this exact schema:
+
+{
+  "title": "<short headline (max 60 chars)>",
+  "summary": "<short paragraph 4-5 sentences - community consensus>",
+  "sentiment_score": <float 0.0-1.0 indicating positivity (0 negative - 1 positive)>,
+  "strengths": ["short bullet points (2-6) - what players praise"],
+  "weaknesses": ["short bullet points (2-6) - what players complain about"],
+  "common_requests": ["features or fixes players ask for (1-5)"],
+  "notable_quotes": [
+    {"quote": "<short quote up to 200 chars>", "author": "..."}
+  ],
+  "surprises": ["unexpected observations from reviews (optional)"],
+  "confidence": "<low|medium|high>  - how confident are you given #reviews>"
+}
+
+RULES:
+- Do not invent facts beyond the given reviews and metadata.
+- Use reviews to justify strengths/weaknesses.
+- sentiment_score should reflect overall tilt from reviews (approximate).
+- 'title' should be catchy and suitable for a Telegram post heading.
+- 'notable_quotes' should contain up to 3 short quotes (prefer higher votes_up).
+- 'confidence' = "high" if total_reviews >= 200, "medium" if >= 30, else "low".
+- Keep all text English.
+- Output must be valid JSON with the fields above.
+
+END.
 """
 # ---------------------------------------------------------------------------------------------------------------------
 # Editorial Refiner

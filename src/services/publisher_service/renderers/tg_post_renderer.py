@@ -5,7 +5,7 @@ from src.schemas import (
     DiscountPublicationSchema,
     NewsPublicationSchema,
     RedditPostPublicationSchema,
-    AllocatedPostsSchema,
+    AllocatedPostsSchema, ReviewPublicationSchema,
 )
 from src.templates import (
     GAME_POST_TEMPLATES,
@@ -14,6 +14,7 @@ from src.templates import (
     REDDIT_POST_TEMPLATES,
 )
 from src.templates.reddit_meme_puplications import REDDIT_MEME_TEMPLATES
+from src.templates.reviews_publications import REVIEWS_SUMMARY_TEMPLATES
 from src.utils.common import clean_text
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -36,6 +37,7 @@ class PostRenderer:
             "news": self._render_news_post,
             "reddit_posts": self._render_reddit_post,
             "reddit_memes": self._render_meme_post,
+            "reviews": self._render_review_summary_post,
         }
 
     # ------------------------------------------------------------
@@ -46,6 +48,29 @@ class PostRenderer:
             raise ValueError(f"Unsupported publication type: {record_type}")
         return self._builders[record_type](record.post)
 
+    # ------------------------------------------------------------
+    # --- REVIEW SUMMARY POST ---
+    def _render_review_summary_post(self, review: ReviewPublicationSchema) -> str:
+        """Renders a review summary post template.
+        :param review: The review to render
+        :return: The rendered review summary post template
+        """
+        review_summary = review.summary
+        context = {
+            "title": review_summary.title,
+            "summary": review_summary.summary,
+            "sentiment_score": review_summary.sentiment_score,
+            "strengths": review_summary.strengths,
+            "weaknesses": review_summary.weaknesses,
+            "common_requests": review_summary.common_requests,
+            "notable_quotes": review_summary.notable_quotes,
+            "surprises": review_summary.surprises,
+            "steam_appid": review.steam_appid,
+            "image": review.image,
+        }
+
+        template = self.env.from_string(random.choice(REVIEWS_SUMMARY_TEMPLATES))
+        return template.render(**context).strip()
     # ------------------------------------------------------------
     # --- GAME POST ---
     def _render_game_post(self, game: GamePublicationRecordSchema) -> str:
