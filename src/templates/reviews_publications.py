@@ -1,36 +1,36 @@
 REVIEWS_SUMMARY_TEMPLATES = [
 # --- Template 1: Dynamic Short Review ---
 """
-🔥 <b>{{ title }}</b>
+🔥 <b>{{ title | safe }}</b>
 
-{{ summary }}
+{{ summary | safe }}
 
 <b>Community Sentiment:</b> {{ (sentiment_score * 100) | round(0) }}%
 
 <b>👍 Strengths:</b>
 {% for s in strengths %}
-• {{ s }}
+• {{ s | safe }}
 {% endfor %}
 
 <b>👎 Weaknesses:</b>
 {% for w in weaknesses %}
-• {{ w }}
+• {{ w | safe }}
 {% endfor %}
 
 <b>🛠 Most Requested Improvements:</b>
 {% for r in common_requests %}
-• {{ r }}
+• {{ r | safe }}
 {% endfor %}
 
 <b>💬 Notable Quote:</b>
-{% if notable_quotes %}
-“{{ notable_quotes[0].quote }}” — <i>{{ notable_quotes[0].author }}</i>
-{% endif %}
+{% for q in notable_quotes %}
+• “{{ q | safe }}”
+{% endfor %}
 
 {% if surprises %}
 <b>🤯 Surprises:</b>
 {% for s in surprises %}
-• {{ s }}
+• {{ s | safe }}
 {% endfor %}
 {% endif %}
 
@@ -43,36 +43,36 @@ REVIEWS_SUMMARY_TEMPLATES = [
 
 # --- Template 2: Analytical Review ---
 """
-🎮 <b>{{ title }}</b>
+🎮 <b>{{ title | safe }}</b>
 
-{{ summary }}
+{{ summary | safe }}
 
 <b>📊 Overall Sentiment:</b> {{ (sentiment_score * 100) | round(0) }}%
 
 <b>🔥 What Players Loved:</b>
 {% for s in strengths %}
-• {{ s }}
+• {{ s | safe }}
 {% endfor %}
 
 <b>⚠️ What Players Criticized:</b>
 {% for w in weaknesses %}
-• {{ w }}
+• {{ w | safe }}
 {% endfor %}
 
 <b>📌 What Players Want:</b>
 {% for r in common_requests %}
-• {{ r }}
+• {{ r | safe }}
 {% endfor %}
 
 <b>💬 Highlighted Community Quotes:</b>
 {% for q in notable_quotes %}
-• “{{ q.quote }}” — <i>{{ q.author }}</i>
+• “{{ q | safe }}”
 {% endfor %}
 
 {% if surprises %}
 <b>🤔 Unexpected Notes:</b>
 {% for s in surprises %}
-• {{ s }}
+• {{ s | safe }}
 {% endfor %}
 {% endif %}
 
@@ -85,36 +85,36 @@ REVIEWS_SUMMARY_TEMPLATES = [
 
 # --- Template 3: Editorial Style Review ---
 """
-📝 <b>{{ title }}</b>
+📝 <b>{{ title | safe }}</b>
 
-{{ summary }}
+{{ summary | safe }}
 
 <b>Sentiment Score:</b> <code>{{ (sentiment_score * 100) | round(1) }}%</code>  
 
 <b>🎯 Highlights:</b>
 {% for s in strengths %}
-• <b>{{ s }}</b>
+• <b>{{ s | safe }}</b>
 {% endfor %}
 
 <b>🔻 Issues Players Point Out:</b>
 {% for w in weaknesses %}
-• {{ w }}
+• {{ w | safe }}
 {% endfor %}
 
 <b>✨ Common Player Requests:</b>
 {% for r in common_requests %}
-• {{ r }}
+• {{ r | safe }}
 {% endfor %}
 
 <b>💬 Community Quotes:</b>
 {% for q in notable_quotes %}
-— “{{ q.quote }}” <i>({{ q.author }})</i>
+— “{{ q | safe }}”
 {% endfor %}
 
 {% if surprises %}
 <b>🎲 Surprising Takeaways:</b>
 {% for s in surprises %}
-• {{ s }}
+• {{ s | safe }}
 {% endfor %}
 {% endif %}
 

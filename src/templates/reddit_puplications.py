@@ -2,15 +2,15 @@
 REDDIT_POST_TEMPLATES = [
 # --- Template 1 ---
 """
-👨‍💻 <b>{{ title }}</b>
+👨‍💻 <b>{{ title | safe }}</b>
 {% if image_url %}
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
 
 {% if extract_snippet %}
-{{ extract_snippet }}
+{{ extract_snippet | safe }}
 {% elif selftext %}
-{{ selftext[:4000] }}...
+{{ selftext[:4000] | safe }}...
 {% endif %}
 
 <b>Author:</b> {{ author }}
@@ -29,13 +29,13 @@ REDDIT_POST_TEMPLATES = [
 
 # --- Template 2 ---
 """
-🎮 <b>{{ title }}</b>  
+🎮 <b>{{ title | safe }}</b>  
 {% if image_url %}
 
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
 
-> {% if extract_snippet %}{{ extract_snippet }}{% elif selftext %}{{ selftext[:4000] }}...{% endif %}
+> {% if extract_snippet %}{{ extract_snippet | safe }}{% elif selftext %}{{ selftext[:4000] | safe }}...{% endif %}
 
 🧩 Shared by {{ author  }} on r/{{ subreddit }}
   
@@ -53,17 +53,17 @@ REDDIT_POST_TEMPLATES = [
 
 # --- Template 3 ---
 """
-💬 <b>{{ title }}</b>
+💬 <b>{{ title | safe }}</b>
 {% if image_url %}
 
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
 
 {% if extract_snippet %}
-{{ extract_snippet }}
+{{ extract_snippet | safe }}
 
 {% elif selftext %}
-{{ selftext[:4000] }}...
+{{ selftext[:4000] | safe }}...
 
 {% endif %}
 

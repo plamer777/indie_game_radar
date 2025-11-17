@@ -88,9 +88,9 @@ class Orchestrator:
         top_n -= published_today
         allocated = []
         for attempt in range(5):
+            filtered_reviews_to_publish = await self._rank_engine.filter_reviews(top_n)
             filtered_games_to_publish = await self._rank_engine.filter_games(top_n)
             filtered_news_to_publish = await self._rank_engine.filter_news(top_n)
-            filtered_reviews_to_publish = await self._rank_engine.filter_reviews(top_n)
             filtered_discounts = await self._rank_engine.filter_discounts(top_n)
             filtered_reddis_posts = await self._rank_engine.filter_reddit_posts(top_n)
             filtered_game_dev_reddit_posts = await self._rank_engine.filter_game_dev_reddit_posts(
@@ -121,7 +121,6 @@ class Orchestrator:
     async def _run_cycle(self, top_n: Optional[int] = None) -> None:
         """Runs the full ranking and publishing cycle once per day."""
         top_n = top_n or C.DEFAULT_DAILY_POSTS
-
         while True:
             now = datetime.now(UTC)
             if C.ALLOCATION_START_HOUR <= now.hour < C.ALLOCATION_END_HOUR:

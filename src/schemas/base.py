@@ -16,3 +16,6 @@ class BaseSchema(BaseModel):
         value = dict(self)
         value["_id"] = value.pop("id")
         return value
+
+    class Config:
+        extra = "ignore"

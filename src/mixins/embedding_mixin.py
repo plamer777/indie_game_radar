@@ -71,4 +71,5 @@ class EmbeddingMixin:
             embeddings.append(emb)
             return False
 
+        embeddings.append(emb)
         return True

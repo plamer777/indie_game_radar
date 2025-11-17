@@ -6,7 +6,7 @@ Now {{ discount_percent }}% off — only {{ price }} 💰
   
 ({{ original_price }} → {{ price }})
 
-{{ short_description }}
+{{ short_description | safe }}
 
 <b>Genres:</b> {{ genres }}
 
@@ -26,7 +26,7 @@ Now {{ discount_percent }}% off — only {{ price }} 💰
     """
 🔥 Massive discount on <b>{{ name }}</b> — now {{ discount_percent }}% OFF! 🔥
 
-{{ short_description }}
+{{ short_description | safe }}
 
 <b>Old price:</b> {{ original_price }}
 

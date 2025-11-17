@@ -746,24 +746,22 @@ EDITORIAL_REFINER_REVIEW_PROMPT = """
 You are an analyst who summarizes player sentiment from community reviews.
 INPUT:
 - Game title: "{game}"
-- Selected reviews: {reviews} # array of objects [{"author_id": "...", "text": "...", "language": "english", "votes_up": 41, "votes_funny": 0, "timestamp": 1762791739}, ... ]
+- Selected reviews: {reviews} # array of objects [{{"author": "...", "text": "...", "language": "english", "votes_up": 41, "votes_funny": 0, "timestamp": 1762791739}}, ... ]
 
 TASK:
 Using only the provided selected reviews and metadata, produce a concise, honest, and balanced summary of player sentiment about the game. Output MUST be valid JSON **only** (no prose outside JSON). The JSON must follow this exact schema:
 
-{
+{{
   "title": "<short headline (max 60 chars)>",
   "summary": "<short paragraph 4-5 sentences - community consensus>",
   "sentiment_score": <float 0.0-1.0 indicating positivity (0 negative - 1 positive)>,
   "strengths": ["short bullet points (2-6) - what players praise"],
   "weaknesses": ["short bullet points (2-6) - what players complain about"],
   "common_requests": ["features or fixes players ask for (1-5)"],
-  "notable_quotes": [
-    {"quote": "<short quote up to 200 chars>", "author": "..."}
-  ],
+  "notable_quotes": ["<short quote up to 200 chars>"],
   "surprises": ["unexpected observations from reviews (optional)"],
   "confidence": "<low|medium|high>  - how confident are you given #reviews>"
-}
+}}
 
 RULES:
 - Do not invent facts beyond the given reviews and metadata.

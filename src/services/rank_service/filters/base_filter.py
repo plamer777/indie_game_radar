@@ -76,15 +76,17 @@ class BaseFilter(EmbeddingMixin):
             if checked.suitable:
                 emb_schema.embedding = checked.embedding
                 is_duplicated = await self._is_duplicated(emb_schema)
+                if is_duplicated:
+                    checked.suitable = False
+                    checked.reason = 'duplicated'
+                    checked.confidence = 1.0
+
                 if not checked.embedding:
                     checked.embedding = emb_schema.embedding
-                    await self._update_checked(entity_id=entity_id, entity_type=entity_type, data=checked)
 
+                await self._update_checked(entity_id=entity_id, entity_type=entity_type, data=checked)
                 pub_schema.embedding = checked.embedding
-                if not is_duplicated:
-                    return True
-
-                return False
+                return checked.suitable
 
         else:
             is_duplicated = await self._is_duplicated(emb_schema)

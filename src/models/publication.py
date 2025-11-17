@@ -130,7 +130,7 @@ class ReviewSummary(BaseModel):
     strengths: list[str] = []
     weaknesses: list[str] = []
     common_requests: list[str] = []
-    notable_quotes: list[dict] = []
+    notable_quotes: list[str] = []
     surprises: list[str] = []
     confidence: Optional[str] = None
 

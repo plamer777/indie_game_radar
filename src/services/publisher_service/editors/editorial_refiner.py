@@ -65,9 +65,10 @@ class EditorialRefiner:
 
                 parsed = parse_json(content)
                 if parsed:
-                    description = parsed.get('content')
-                    if is_markdown(description):
-                        parsed['content'] = markdown.markdown(description)
+                    for key, value in parsed.items():
+                        if is_markdown(value):
+                            parsed[key] = markdown.markdown(value)
+
                     return parsed
 
             except Exception as e:

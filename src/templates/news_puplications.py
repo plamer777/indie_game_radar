@@ -2,12 +2,12 @@
 NEWS_POST_TEMPLATES = [
 # --- Template 1 ---
 """
-📰 <b>{{ title }}</b>
+📰 <b>{{ title | safe }}</b>
 {% if image_url %}
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
 
-{{ contents }}
+{{ contents | safe }}
 
 <b>Game ID:</b> {{ appid }}
   
@@ -28,12 +28,12 @@ NEWS_POST_TEMPLATES = [
 """
 ⚙️ <b>Update News for Steam App #{{ appid }}</b>
 
-{{ title }}
+{{ title | safe }}
 {% if image_url %}
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
 
-{{ contents }}
+{{ contents | safe }}
 
 <b>Published on:</b> {{ date }}
   
@@ -46,12 +46,12 @@ NEWS_POST_TEMPLATES = [
 
 # --- Template 3 ---
 """
-💡 <b>{{ title }}</b>
+💡 <b>{{ title | safe }}</b>
 {% if image_url %}
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
 
-{{ contents }}
+{{ contents | safe }}
 
 By {{ author }}
   

@@ -1,5 +1,3 @@
-from datetime import datetime, UTC
-
 import asyncio
 from datetime import datetime, UTC
 from src.clients.telegram_client import TelegramPublisher

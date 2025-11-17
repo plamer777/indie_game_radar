@@ -269,10 +269,13 @@ class RankEngineService(BaseService):
             sort_by={'last_score': -1}, generator_mode=True
         )
         unpublished = []
+        seen_news = set()
         async for game in scored_games:
             try:
                 async for filtered in self._news_filter.filter_news(game.last_news[:1], game):
-
+                    if filtered.gid in seen_news:
+                        continue
+                    seen_news.add(filtered.gid)
                     if not await self._news_publication_adapter.was_published(filtered):
                         unpublished.append(filtered)
 
@@ -362,9 +365,12 @@ class RankEngineService(BaseService):
             {'type': 'game_dev_story', 'last_score': {'$gte': C.REDDIT_GAME_DEV_FILTER_RATING_MIN}},
             sort_by={'last_score': -1}
         )
-
+        seen_posts = set()
         async for post in self._reddit_dev_post_filter.filter_posts(reddit_posts):
             try:
+                if post.reddit_id in seen_posts:
+                    continue
+                seen_posts.add(post.reddit_id)
                 if not await self._reddit_publication_adapter.was_published(post):
                     unpublished.append(post)
                     if len(unpublished) >= top_n:
