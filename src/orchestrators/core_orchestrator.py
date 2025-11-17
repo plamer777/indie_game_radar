@@ -30,14 +30,9 @@ class Orchestrator:
         self._scheduler = scheduler
 
     async def start(self):
-        # await self._start_harvester()
-        # await self._start_ranker()
+        await self._start_harvester()
+        await self._start_ranker()
         await self._run_cycle(top_n=C.DEFAULT_DAILY_POSTS)
-
-        while True:
-            await asyncio.sleep(3600)
-
-        # await self._run_cycle(top_n=settings.TOP_N_TO_PUBLISH)
 
     @execute_in_thread
     async def _start_harvester(self):

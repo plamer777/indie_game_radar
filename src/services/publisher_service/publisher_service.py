@@ -1,9 +1,11 @@
 from datetime import datetime, UTC
 
+import asyncio
+from datetime import datetime, UTC
 from src.clients.telegram_client import TelegramPublisher
 from src.db.repositories import (
     GamePublicationRepository, DiscountPublicationRepository, NewsPublicationRepository,
-    RedditPostPublicationRepository
+    RedditPostPublicationRepository, ReviewPublicationRepository
 )
 from src.models.publication import PublishStatus, ReviewSummary
 from src.schemas import AllocatedPostsSchema
@@ -12,6 +14,7 @@ from src.services.publisher_service.editors import EditorialRefiner
 from src.services.publisher_service.renderers.tg_post_renderer import PostRenderer
 from src.utils.common import clean_text
 from src.utils.logging import get_logger
+from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -22,12 +25,14 @@ class PublisherService(BaseService):
         discount_publication_repo: DiscountPublicationRepository,
         news_publication_repo: NewsPublicationRepository,
         reddit_post_publication_repo: RedditPostPublicationRepository,
-        editorial_refiner: EditorialRefiner
+        editorial_refiner: EditorialRefiner,
+        review_publication_repo: ReviewPublicationRepository,
     ):
         self._game_publication_repo = publication_repo
         self._discount_publication_repo = discount_publication_repo
         self._news_publication_repo = news_publication_repo
         self._reddit_post_publication_repo = reddit_post_publication_repo
+        self._review_publication_repo = review_publication_repo
         self._publisher = publisher
         self._log = get_logger().bind(service="PublisherService")
         self._renderer = PostRenderer()
@@ -38,6 +43,7 @@ class PublisherService(BaseService):
             "news": self._news_publication_repo,
             "reddit_posts": self._reddit_post_publication_repo,
             "reddit_memes": self._reddit_post_publication_repo,
+            "reviews": self._review_publication_repo,
         }
 
     async def count_published_for_today(self) -> int:
@@ -63,6 +69,9 @@ class PublisherService(BaseService):
         cycle_log.info("start")
         published_count = 0
         for record in posts:
+            while datetime.now(UTC) < record.publish_time:
+                await asyncio.sleep(C.PUBLICATION_SCHEDULER_DELAY)
+
             published = await self._handle_publication(record)
             if not published.post.error:
                 published_count += 1

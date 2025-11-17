@@ -111,7 +111,8 @@ publisher = PublisherService(
     discount_publication_repo=discount_pub_repo,
     news_publication_repo=news_pub_repo,
     reddit_post_publication_repo=reddit_post_publication_repo,
-    editorial_refiner=editorial_refiner
+    editorial_refiner=editorial_refiner,
+    review_publication_repo=review_publication_repo,
 )
 
 
