@@ -2,6 +2,7 @@ from typing import Literal
 import markdown
 from openai import AsyncOpenAI
 from src.config import constants as C
+from src.services.publisher_service.processors import HTMLProcessor
 from src.utils.common import parse_json, is_markdown
 from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
@@ -13,7 +14,10 @@ class EditorialRefiner:
     suitable for the Indie Game Radar Telegram channel.
     """
 
-    def __init__(self, open_ai_client: AsyncOpenAI, model: str = C.EDITORIAL_REFINER_MODEL) -> None:
+    def __init__(
+        self, open_ai_client: AsyncOpenAI, html_processor: HTMLProcessor | None = None,
+        model: str = C.EDITORIAL_REFINER_MODEL
+    ) -> None:
         """
         The constructor for the EditorialRefiner class.
         :param open_ai_client: The OpenAI client to use for the API calls
@@ -29,6 +33,7 @@ class EditorialRefiner:
             "reviews": C.EDITORIAL_REFINER_REVIEW_PROMPT,
         }
         self._log = get_logger().bind(service="EditorialRefiner")
+        self._html_processor = html_processor or HTMLProcessor()
 
     async def refine(
         self,
@@ -62,12 +67,13 @@ class EditorialRefiner:
 
                 content = response.choices[0].message.content.strip()
 
-
                 parsed = parse_json(content)
                 if parsed:
                     for key, value in parsed.items():
                         if is_markdown(value):
-                            parsed[key] = markdown.markdown(value)
+                            value = markdown.markdown(value)
+
+                        parsed[key] = self._html_processor.sanitize_telegram_html(value)
 
                     return parsed
 

@@ -30,7 +30,6 @@ client = AsyncOpenAI(api_key=settings.OPEN_AI_KEY)
 # Schedulers
 scheduler = AsyncScheduler()
 
-
 # Repositories
 games_repo = GameRepository()
 ranked_games_repo = RankedGameRepository()

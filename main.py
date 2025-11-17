@@ -6,10 +6,10 @@ from src.utils.logging import get_logger
 
 
 async def app_main() -> None:
+    """The main application function."""
     log = get_logger().bind(app="igr")
     log.info("app_start")
     await orchestrator.start()
-
     log.info("app_stop")
 
 

@@ -35,7 +35,7 @@ class TelegramPublisher:
         url = f"https://api.telegram.org/bot{self._token}/sendMessage"
         payload = {
             "chat_id": self._chat_id, "text": text, "disable_web_page_preview": not preview,
-            "parse_mode": parse_mode, "schedule_date": int(schedule_time.timestamp())
+            "parse_mode": parse_mode, "schedule_date": int(schedule_time.timestamp()) if schedule_time else None
         }
 
         # поддержка отложенной публикации

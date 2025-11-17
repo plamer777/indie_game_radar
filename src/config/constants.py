@@ -781,3 +781,28 @@ EDITORIAL_REFINER_MODEL = "gpt-4o-mini"
 
 # Embedding mixin settings
 DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small'
+
+TG_ALLOWED_TAGS = {
+    "b", "i", "u", "s",
+    "a", "code", "pre",
+    "span", "tg-spoiler",
+}
+
+# Теги-синонимы, которые Telegram НЕ поддерживает напрямую,
+# но они полностью эквивалентны разрешённым.
+TG_TAG_MAPPING = {
+    "strong": "b",
+    "em": "i",
+    "ins": "u",
+    "strike": "s",
+    "del": "s",
+}
+
+# Разрешённые атрибуты
+TG_ALLOWED_ATTRS = {
+    "a": {"href"},
+    "span": {"class"},  # только class="tg-spoiler"
+    "code": {"class"},  # class="language-xxx"
+    "pre": {"language"},  # используется telegram
+    "tg-spoiler": set(),
+}
