@@ -86,8 +86,8 @@ class PublisherService(BaseService):
                     "content": clean_text(record.post.contents),
                 }
                 edited = await self._editor.refine(record.category, **params)
-                record.post.title = edited.get('title')
-                record.post.contents = edited.get('content')
+                record.post.title = edited.get('title') or record.post.title
+                record.post.contents = edited.get('content') or record.post.contents
             elif record.category == 'reddit_posts':
                 params = {
                     "title": record.post.title,
@@ -95,15 +95,15 @@ class PublisherService(BaseService):
                 }
                 post_type = f'{record.category}_{record.post.type}'
                 edited = await self._editor.refine(post_type, **params)
-                record.post.title = edited.get('title')
-                record.post.selftext = edited.get('content')
+                record.post.title = edited.get('title') or record.post.title
+                record.post.selftext = edited.get('content') or record.post.selftext
             elif record.category == 'games':
                 params = {
                     "title": record.post.name,
                     "content": clean_text(record.post.detailed_description),
                 }
                 edited = await self._editor.refine(record.category, **params)
-                record.post.detailed_description = edited.get('content')
+                record.post.detailed_description = edited.get('content') or record.post.detailed_description
             elif record.category == 'reviews':
                 params = {
                     "game": record.post.game_name,

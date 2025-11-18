@@ -118,7 +118,7 @@ class HTMLProcessor:
             self.clean(root)
 
             # Сборка HTML обратно
-            return self.serialize(root)
+            return self.serialize(root) or text
         except Exception as e:
             self._log.error(f'Error while sanitizing the html for TG: {e}')
 
