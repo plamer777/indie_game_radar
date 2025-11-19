@@ -179,6 +179,8 @@ class ContentAllocationStrategy:
                     continue
                 selected = random.sample(pool, min(amount, len(pool)))
                 for post in selected:
+                    if post in pool:
+                        pool.remove(post)
                     segment_posts.append(AllocatedPostsSchema(category=category, post=post))
 
             # равномерно распределяем по времени внутри сегмента
