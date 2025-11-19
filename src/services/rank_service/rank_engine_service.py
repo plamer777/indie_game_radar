@@ -393,7 +393,7 @@ class RankEngineService(BaseService):
             {'type': 'meme', 'last_score': {'$gte': C.REDDIT_MEME_FILTER_MIN_SCORE}},
             sort_by={'last_score': -1}, generator_mode=True
         )
-
+        added = set()
         async for post in reddit_posts:
             try:
                 was = await self._reddit_post_publication_repo.was_published(post)
@@ -402,6 +402,10 @@ class RankEngineService(BaseService):
 
                 checked_posts = self._reddit_meme_filter.filter_posts([post])
                 for filtered in checked_posts:
+                    if filtered.reddit_id in added:
+                        continue
+
+                    added.add(filtered.reddit_id)
                     unpublished.append(filtered)
 
                     if len(unpublished) >= top_n:
