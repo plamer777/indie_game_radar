@@ -3,6 +3,7 @@ from .publication_schemas import GamePublicationRecordSchema, NewsPublicationSch
     RedditPostPublicationSchema, AllocatedPostsSchema, ReviewPublicationSchema
 from .reddit_schemas import RedditPostSchema, RankedRedditPostSchema
 from .checked_record_schemas import CheckedEntitySchema, DeduplicationSchema
+from .speadrun_schemas import GameLeaderboardSchema
 # ---------------------------------------------------------------------------------------------------------------------
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     "AllocatedPostsSchema",
     "CheckedEntitySchema",
     "DeduplicationSchema",
-    "ReviewPublicationSchema"
+    "ReviewPublicationSchema",
+    "GameLeaderboardSchema"
 
 ]

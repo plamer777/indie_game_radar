@@ -13,6 +13,75 @@ class RedditAdapter:
         self._client = client
         self._log = get_logger().bind(adapter="RedditAdapter")
 
+    async def fetch_game_pixel_art(
+        self,
+        game_names: list[str],
+        subreddit_list: Optional[list[str]] = ["PixelArt"],
+        limit: int = C.DEFAULT_GAME_MEME_POSTS_LIMIT,
+        oversample_factor: int = 20,
+    ) -> list[RedditPostSchema]:
+        """
+        Загружает Pixel Art, если в заголовке поста упоминается одна из игр списка.
+        """
+        log = self._log
+        log.info(f"fetch_game_pixel_art for {len(game_names)} games")
+
+        posts = []
+        fetched = 0
+        target = limit
+
+        # Нам нужно загрузить НАМНОГО больше постов, чтобы найти среди них те,
+        # которые относятся к нашим играм.
+        internal_limit = limit * oversample_factor
+
+        game_names_lower = [name.lower().strip() for name in game_names if len(name.strip()) > 2]
+
+        query = ' OR '.join(f'title:"{name}"' for name in game_names_lower)
+
+        if not query:
+            return []
+
+        # Убираем поиск по flair, так как в r/PixelArt флеры другие (например "Hand Pixelled")
+        # Просто берем 'hot' или 'top'
+        async for submission in self._client.find_submissions(
+            query=query,
+            subreddit_list=subreddit_list, sort="hot", limit=internal_limit
+        ):
+            log.info(submission.title)
+            # 1. Фильтр: Только изображения
+            if not submission.url or not submission.url.lower().endswith((".jpg", ".jpeg", ".png", ".gif")):
+                continue
+
+            # 2. Фильтр: Проверка на NSFW (для артов это критично)
+            if submission.over_18:
+                continue
+
+            # 3. Фильтр: Поиск названия игры в заголовке
+            title_lower = submission.title.lower()
+
+            # Проверяем, содержится ли хоть одно название игры в заголовке
+            # Используем 'in', чтобы найти 'Hades' внутри 'Fanart of Zagreus from Hades!'
+            is_relevant = any(game in title_lower for game in game_names_lower)
+
+            if not is_relevant:
+                continue
+
+            try:
+                # Передаем post_type="art", чтобы потом правильно оформить пост (например, добавить хештег #PixelArt)
+                post_model = await self._map_submission(submission, post_type="art")
+            except Exception as e:
+                log.warning(f"Ошибка при маппинге поста: {e}")
+                continue
+
+            posts.append(post_model)
+            fetched += 1
+
+            if fetched >= target:
+                break
+
+        log.info(f"Found {fetched} pixel art posts out of scanned submissions")
+        return posts
+
     async def fetch_gaming_memes(
         self,
         subreddit_list: Optional[list[str]] = C.GAME_MEME_SUBREDDITS,
@@ -103,7 +172,7 @@ class RedditAdapter:
         self,
         submission: Submission,
         steam_appid: Optional[int] = None,
-        post_type: Literal['game_related', 'game_dev_story', 'meme'] = 'game_related'
+        post_type: Literal['game_related', 'game_dev_story', 'meme', 'art'] = 'game_related'
     ) -> RedditPostSchema:
         # извлечение steam_appid из URL или текста, если не передан
         extracted_appid: Optional[int] = steam_appid
