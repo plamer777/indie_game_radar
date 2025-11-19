@@ -3,6 +3,7 @@ from .steam_client import AsyncSteamClient
 from .igdb_client import AsyncIGDBClient
 from .telegram_client import TelegramPublisher
 from .reddit_client import RedditClient
+from .speedrun_client import SpeedrunComClient
 # ---------------------------------------------------------------------------------------------------------------------
 
 __all__ = [
@@ -10,6 +11,7 @@ __all__ = [
     "AsyncSteamClient",
     "AsyncIGDBClient",
     "TelegramPublisher",
-    "RedditClient"
+    "RedditClient",
+    "SpeedrunComClient"
 ]
 

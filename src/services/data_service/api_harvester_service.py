@@ -137,6 +137,20 @@ class APIHarvesterService(BaseService):
             self._log.error("fetch_meta_by_game", exc_info=True, error=e)
             return None
 
+    async def fetch_reddit_arts_by_game(self, game: GameSchema | GameModel) -> list[RedditPostSchema]:
+        try:
+            # TODO method don't works for now, not any art found for games
+            reddit_posts = await self._reddit_adapter.fetch_game_pixel_art(
+                game_names=[game.name]
+            )
+            [setattr(post, 'game_name', game.name) for post in reddit_posts]
+            await self._reddit_posts.add_or_update(reddit_posts, search_field="reddit_id")
+
+            return reddit_posts
+        except Exception as e:
+            self._log.error("fetch_reddit_posts_by_game", exc_info=True, error=e)
+            return []
+
     async def fetch_reddit_posts_by_game(self, game: GameSchema | GameModel) -> list[RedditPostSchema]:
         try:
             reddit_posts = await self._reddit_adapter.search_posts_for_game(
