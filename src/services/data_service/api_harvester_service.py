@@ -1,17 +1,17 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
-from src.clients import RedditClient
+from src.clients import RedditClient, SpeedrunClient
 from src.config import constants as C
 from src.clients.igdb_client import AsyncIGDBClient
 from src.clients.steam_client import AsyncSteamClient
 from src.db.repositories import GameRepository, GameSnapshotRepository, AppRepository, IGDBRepository, \
-    RedditPostRepository
+    RedditPostRepository, LeaderboardRepository
 from src.models.game import GameModel
-from src.schemas import GameSnapshotSchema, GameSchema, RedditPostSchema
+from src.schemas import GameSnapshotSchema, GameSchema, RedditPostSchema, GameLeaderboardSchema
 from src.schemas.igdb_schemas import IGDBMetaSchema
 from src.services.base_service import BaseService
-from src.services.data_service.adapters import RedditAdapter
+from src.services.data_service.adapters import RedditAdapter, SpeedrunAdapter
 from src.services.shared_dependencies import NewsStatCalculator
 from src.utils.logging import get_logger
 # --------------------------------------------------------------------------------------------------------------------
@@ -28,7 +28,21 @@ class APIHarvesterService(BaseService):
         game_snapshot_repo: GameSnapshotRepository,
         app_repo: AppRepository,
         igdb_repo: IGDBRepository,
-    ):
+        speedrun_client: SpeedrunClient,
+        leaderboard_repo: LeaderboardRepository,
+    ) -> None:
+        """The constructor method for APIHarvesterService class.
+        :param steam_client: an instance of AsyncSteamClient class
+        :param igdb_client: an instance of AsyncIGDBClient class
+        :param reddit_client: an instance of RedditClient class
+        :param game_repo: an instance of GameRepository class
+        :param reddit_post_repo: an instance of RedditPostRepository class
+        :param game_snapshot_repo: an instance of GameSnapshotRepository class
+        :param app_repo: an instance of AppRepository class
+        :param igdb_repo: an instance of IGDBRepository class
+        :param speedrun_client: an instance of SpeedrunClient class
+        :param leaderboard_repo: an instance of LeaderboardRepository class
+        """
         self._steam = steam_client
         self._igdb_client = igdb_client
         self._reddit_posts = reddit_post_repo
@@ -39,6 +53,8 @@ class APIHarvesterService(BaseService):
         self._log = get_logger().bind(service="api_harvester")
         self._news_stat_calculator = NewsStatCalculator()
         self._reddit_adapter = RedditAdapter(reddit_client)
+        self._speedrun_adapter = SpeedrunAdapter(speedrun_client)
+        self._leaderboard_repo = leaderboard_repo
 
     async def fetch_cycle(self, until: datetime) -> None:
         """
@@ -85,11 +101,12 @@ class APIHarvesterService(BaseService):
                 game = await self._steam.fetch_full_app_details(app.appid)
                 if not game:
                     await self._app_repo.delete(app.id)
-                    await self._games.delete(app.appid)
+                    await self._games.delete({"steam_appid": app.appid})
                     continue
 
                 changed = await self._games.add_or_update(game, search_field="steam_appid")
                 await self.fetch_reddit_posts_by_game(game)
+                await self.fetch_game_leaderboard(game)
 
                 if changed:
                     total_achievements = len(game.ext_info.achievements or [])
@@ -126,6 +143,10 @@ class APIHarvesterService(BaseService):
             await self._bounded_gather(self.fetch_meta_by_game, batch, concurrency=C.ORCH_FETCH_META_CONCURRENCY)
 
     async def fetch_meta_by_game(self, game: GameSchema | GameModel) -> Optional[IGDBMetaSchema]:
+        """The method serves to fetch meta for a game
+        :param game: an instance of GameSchema or GameModel class
+        :return: an instance of IGDBMetaSchema class or None if game was not found
+        """
         try:
             meta = await self._igdb_client.fetch_game_meta(name=game.name, steam_appid=game.steam_appid)
             if meta:
@@ -135,6 +156,24 @@ class APIHarvesterService(BaseService):
             return meta
         except Exception as e:
             self._log.error("fetch_meta_by_game", exc_info=True, error=e)
+            return None
+
+    async def fetch_game_leaderboard(self, game: GameSchema | GameModel) -> Optional[GameLeaderboardSchema]:
+        """The method serves to fetch leaderboard for a game
+        :param game: an instance of GameSchema or GameModel class
+        :return: an instance of GameLeaderboardSchema class or None if game was not found
+        """
+        try:
+            leaderboard = await self._speedrun_adapter.fetch_leaderboard(game_name=game.name)
+            if leaderboard:
+                if abs((leaderboard.release_date - game.release_date).days) > C.SPEEDRUN_GAME_RELEASE_MAX_DELTA_DAYS:
+                    return None
+                leaderboard.steam_appid = game.steam_appid
+                await self._leaderboard_repo.add_or_update(leaderboard, search_field="steam_appid")
+
+            return leaderboard
+        except Exception as e:
+            self._log.error("fetch_game_leaderboard", exc_info=True, error=e)
             return None
 
     async def fetch_reddit_arts_by_game(self, game: GameSchema | GameModel) -> list[RedditPostSchema]:
@@ -152,6 +191,10 @@ class APIHarvesterService(BaseService):
             return []
 
     async def fetch_reddit_posts_by_game(self, game: GameSchema | GameModel) -> list[RedditPostSchema]:
+        """The method serves to fetch and save reddit posts related to provided game object
+        :param game: an instance of GameSchema or GameModel class
+        :return: a list of RedditPostSchema objects or empty list if no posts were found
+        """
         try:
             reddit_posts = await self._reddit_adapter.search_posts_for_game(
                 steam_appid=game.steam_appid
@@ -165,6 +208,9 @@ class APIHarvesterService(BaseService):
             return []
 
     async def fetch_game_dev_reddit_posts(self) -> list[RedditPostSchema]:
+        """The method serves to fetch and save reddit posts related to game dev theme
+        :return: a list of RedditPostSchema objects or empty list if no posts were found
+        """
         cycle_log = self._log.bind(method="fetch_reddit_posts")
         cycle_log.info("start updating game dev reddit posts")
         try:
@@ -177,6 +223,9 @@ class APIHarvesterService(BaseService):
             return []
 
     async def fetch_game_meme_reddit_posts(self) -> list[RedditPostSchema]:
+        """The method serves to fetch and save reddit posts related to game meme theme
+        :return: a list of RedditPostSchema objects or empty list if no posts were found
+        """
         cycle_log = self._log.bind(method="fetch_reddit_posts")
         cycle_log.info("start updating game_meme_reddit_posts")
         try:

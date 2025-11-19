@@ -10,23 +10,23 @@ class Category(BaseModel):
     weblink: str
     type: str
     rules: str
-    players: dict
+    players: dict | None = None
 
 
 class Player(BaseModel):
     id: str
     name: str = Field(validation_alias=AliasPath('names', 'international'))
     weblink: str
-    role: str
+    role: str | None = None
 
 
 class Result(BaseModel):
     place: int
-    videos: list[str]
+    videos: list[str] = []
     weblink: str
-    comment: str
+    comment: str | None = None
     date: datetime
-    times: dict
+    times: dict = {}
     player: Player
 
 
@@ -45,5 +45,5 @@ class CategoryLeader(BaseModel):
 class GameLeaderboard(BaseDBModel):
     steam_appid: int | None = None
     weblink: str
-    discord: str
+    discord: str | None = None
     category_leaderboards: list[CategoryLeader] = []

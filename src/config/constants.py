@@ -50,6 +50,7 @@ DESC = -1
 UNPUBLISHED_QUERY_LIMIT_DEFAULT = 100
 LOOKUP_LIMIT_ONE = 1
 GAMES_COLLECTION = "games"
+LEADERBOARD_COLLECTION = "leaderboards"
 RANKED_GAMES_COLLECTION = "ranked_games"
 REDDIT_POSTS_COLLECTION = "reddit_posts"
 RANKED_REDDIT_POSTS_COLLECTION = "ranked_reddit_posts"
@@ -94,6 +95,14 @@ NEWS_WINDOW_90D = 90
 
 # Округление числовых метрик
 ROUND_PRECISION = 1
+# ---------------------------------------------------------------------------------------------------------------------
+# Speedrun.com
+BASE_SPEEDRUN_URL = "https://www.speedrun.com/api/v1"
+SPEEDRUN_CLIENT_TIMEOUT = 10.0
+# ---------------------------------------------------------------------------------------------------------------------
+# Harvester
+SPEEDRUN_GAME_RELEASE_MAX_DELTA_DAYS = 14
+
 # ---------------------------------------------------------------------------------------------------------------------
 # Reddit client
 GAMEDEV_SUBREDDITS = [

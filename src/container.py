@@ -1,5 +1,5 @@
 from openai import AsyncOpenAI
-from src.clients import RedditClient
+from src.clients import RedditClient, SpeedrunClient
 from src.clients.igdb_client import AsyncIGDBClient
 from src.clients.steam_client import AsyncSteamClient
 from src.clients.telegram_client import TelegramPublisher
@@ -7,7 +7,7 @@ from src.config.settings import settings
 from src.db.repositories import GameRepository, IGDBRepository, GamePublicationRepository, AppRepository, \
     GameSnapshotRepository, NewsPublicationRepository, DiscountPublicationRepository, RankedGameRepository, \
     RedditPostRepository, RankedRedditPostRepository, RedditPostPublicationRepository, CheckedEntityRepository, \
-    ReviewPublicationRepository
+    ReviewPublicationRepository, LeaderboardRepository
 from src.managers.cache import RedisCache
 from src.orchestrators.core_orchestrator import Orchestrator
 from src.scheduler.scheduler import AsyncScheduler
@@ -32,6 +32,7 @@ scheduler = AsyncScheduler()
 
 # Repositories
 games_repo = GameRepository()
+leaderboard_repo = LeaderboardRepository()
 ranked_games_repo = RankedGameRepository()
 igdb_repo = IGDBRepository()
 pub_repo = GamePublicationRepository()
@@ -50,6 +51,7 @@ review_publication_repo = ReviewPublicationRepository()
 steam = AsyncSteamClient(cache)
 igdb = AsyncIGDBClient(cache)
 reddit = RedditClient()
+speedrun_client = SpeedrunClient()
 tg = TelegramPublisher()
 ranker = GameRanker()
 gfilter = GameFilter()
@@ -75,6 +77,8 @@ api_harvester = APIHarvesterService(
     app_repo=app_repo,
     igdb_repo=igdb_repo,
     reddit_post_repo=reddit_post_repo,
+    speedrun_client=speedrun_client,
+    leaderboard_repo=leaderboard_repo,
 )
 
 rank_engine = RankEngineService(

@@ -6,6 +6,7 @@ from .publication import (
 )
 from .reddit import RedditPost, RankedRedditPost
 from .checked_record import CheckedEntity
+from .speedrun import GameLeaderboard
 # --------------------------------------------------------------------------------------------------------------------
 
 __all__ = [
@@ -22,5 +23,6 @@ __all__ = [
     "RedditPost",
     "RankedRedditPost",
     "RedditPostPublication",
-    "CheckedEntity"
+    "CheckedEntity",
+    "GameLeaderboard"
 ]
