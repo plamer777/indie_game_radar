@@ -1,11 +1,11 @@
 import httpx
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 
 # Базовый URL для API Speedrun.com
 BASE_URL = "https://www.speedrun.com/api/v1"
 
 
-class SpeedrunComClient:
+class SpeedrunClient:
     """Асинхронный клиент для взаимодействия с Speedrun.com API с использованием httpx."""
 
     def __init__(self):
@@ -20,11 +20,11 @@ class SpeedrunComClient:
         """Закрытие HTTP-клиента при выходе из контекста."""
         await self.client.aclose()
 
-    async def _fetch(self, endpoint: str) -> Optional[Dict[str, Any]]:
+    async def _fetch(self, endpoint: str, params: dict | None = None) -> Optional[Dict[str, Any]]:
         """Внутренний метод для выполнения запросов и обработки ошибок."""
         try:
             # Асинхронный GET-запрос
-            response = await self.client.get(endpoint)
+            response = await self.client.get(endpoint, params=params or None)
             response.raise_for_status()  # Вызывает исключение для HTTP-ошибок 4xx/5xx
 
             # API Speedrun.com всегда возвращает JSON
@@ -74,7 +74,17 @@ class SpeedrunComClient:
             return data['data']
         return None
 
-    async def get_world_records(self, game_id: str, limit: int = 5) -> Optional[List[Dict[str, Any]]]:
+    async def get_category(self, category_id: str) -> Optional[Dict[str, Any]]:
+        """The method serves to retrieve a single category by provided id"""
+        data = await self._fetch(f"categories/{category_id}")
+        if data:
+            return data['data']
+        return None
+
+    async def get_world_records(
+        self, game_id: str, top: int = 5, scope: Literal['full-game', 'level', 'all'] = 'all',
+        miscellaneous: bool = True, skip_empty: bool = True
+    ) -> Optional[List[Dict[str, Any]]]:
         """
         Получить мировые рекорды для игры (по умолчанию - top 5 категорий).
 
@@ -84,9 +94,10 @@ class SpeedrunComClient:
         """
         # Эндпоинт: /games/{id}/records
         # Параметр 'miscellaneous=yes' позволяет получить все категории
-        data = await self._fetch(f"games/{game_id}/records?miscellaneous=yes")
+        endpoint = f"games/{game_id}/records"
+        params = {'top': top, 'scope': scope, 'miscellaneous': miscellaneous, 'skip-empty': skip_empty}
+        data = await self._fetch(endpoint, params=params)
 
-        if data and data['data']:
-            # Ограничиваем список первыми 'limit' элементами для упрощения
-            return data['data'][:limit]
-        return None
+        result = data.get('data', []) or []
+
+        return result[:top]

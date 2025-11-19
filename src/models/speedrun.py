@@ -1,16 +1,23 @@
 from datetime import datetime
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field, AliasPath
 from src.models.base import BaseDBModel
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class Category(BaseModel):
-    id: int
+    id: str
     name: str
     weblink: str
     type: str
     rules: str
     players: dict
+
+
+class Player(BaseModel):
+    id: str
+    name: str = Field(validation_alias=AliasPath('names', 'international'))
+    weblink: str
+    role: str
 
 
 class Result(BaseModel):
@@ -20,11 +27,8 @@ class Result(BaseModel):
     comment: str
     date: datetime
     times: dict
-    players: list[str]
+    player: Player
 
-    @field_validator('players', mode='before')
-    def validate_players(cls, v):
-        return [player.get('id') for player in v if player.get('id')]
 
     @field_validator('videos', mode='before')
     def validate_videos(cls, v):
@@ -32,15 +36,14 @@ class Result(BaseModel):
         return [video.get('uri') for video in videos if video.get('uri')]
 
 
-class CategoryLeaderboard(BaseModel):
-    level: str
+class CategoryLeader(BaseModel):
     weblink: str
     category: Category
-    results: list[Result]
+    result: Result
 
 
-class Record(BaseDBModel):
-    steam_appid: int
-    game_name: str
+class GameLeaderboard(BaseDBModel):
+    steam_appid: int | None = None
     weblink: str
     discord: str
+    category_leaderboards: list[CategoryLeader] = []
