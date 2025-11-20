@@ -486,6 +486,7 @@ REVIEWS_FILTER_GAME_RATING_MIN = 0.3
 # Game leaderboards filter
 GAME_LEADERBOARD_FILTER_RATING_MIN = 0.3
 GAME_LEADERBOARD_FILTER_MAX_AGE_DAYS = 14
+
 # ---------------------------------------------------------------------------------------------------------------------
 # News filter
 NEWS_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
