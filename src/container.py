@@ -7,28 +7,18 @@ from src.config.settings import settings
 from src.db.repositories import GameRepository, IGDBRepository, GamePublicationRepository, AppRepository, \
     GameSnapshotRepository, NewsPublicationRepository, DiscountPublicationRepository, RankedGameRepository, \
     RedditPostRepository, RankedRedditPostRepository, RedditPostPublicationRepository, CheckedEntityRepository, \
-    ReviewPublicationRepository, LeaderboardRepository
+    ReviewPublicationRepository, LeaderboardRepository, GameLeaderboardPublicationRepository
 from src.managers.cache import RedisCache
 from src.orchestrators.core_orchestrator import Orchestrator
-from src.scheduler.scheduler import AsyncScheduler
 from src.services.data_service import APIHarvesterService
 from src.services.publisher_service import PublisherService
 from src.services.publisher_service.editors import EditorialRefiner
-from src.services.rank_service.filters import DiscountFilter, RedditPostFilter, RedditDevPostFilter, RedditMemeFilter, \
-    GameReviewFilter
-from src.services.rank_service.filters.filter import GameFilter
-from src.services.rank_service.filters.news_filter import NewsFilter
 from src.services.rank_service.rank_engine_service import RankEngineService
-from src.services.rank_service.rankers import NewsRanker, RedditPostRanker, RedditDevPostRanker, RedditMemeRanker
-from src.services.rank_service.rankers.ranker import GameRanker
 # ---------------------------------------------------------------------------------------------------------------------
 
 # Managers
 cache = RedisCache()
 client = AsyncOpenAI(api_key=settings.OPEN_AI_KEY)
-
-# Schedulers
-scheduler = AsyncScheduler()
 
 # Repositories
 games_repo = GameRepository()
@@ -45,6 +35,7 @@ ranked_reddit_posts_repo = RankedRedditPostRepository()
 reddit_post_publication_repo = RedditPostPublicationRepository()
 checked_entity_repo = CheckedEntityRepository()
 review_publication_repo = ReviewPublicationRepository()
+leaderboard_publication_repo = GameLeaderboardPublicationRepository()
 
 
 # Clients/helpers
@@ -53,19 +44,7 @@ igdb = AsyncIGDBClient(cache)
 reddit = RedditClient()
 speedrun_client = SpeedrunClient()
 tg = TelegramPublisher()
-ranker = GameRanker()
-gfilter = GameFilter()
-news_ranker = NewsRanker()
-news_filter = NewsFilter(client, checked_entity_repo=checked_entity_repo)
-discount_filter = DiscountFilter()
-reddit_post_filter = RedditPostFilter(client, checked_entity_repo=checked_entity_repo)
-reddit_post_ranker = RedditPostRanker()
-reddit_dev_post_ranker = RedditDevPostRanker()
-reddit_dev_post_filter = RedditDevPostFilter(client, checked_entity_repo=checked_entity_repo)
 editorial_refiner = EditorialRefiner(client)
-reddit_meme_filter = RedditMemeFilter()
-reddit_meme_ranker = RedditMemeRanker()
-game_review_filter = GameReviewFilter()
 
 # Services
 api_harvester = APIHarvesterService(
@@ -86,26 +65,17 @@ rank_engine = RankEngineService(
     game_snapshot_repo=game_snapshot_repo,
     publish_repo=pub_repo,
     igdb_repo=igdb_repo,
-    game_ranker=ranker,
-    game_filter=gfilter,
-    news_ranker=news_ranker,
-    news_filter=news_filter,
     news_publication_repo=news_pub_repo,
     discount_publication_repo=discount_pub_repo,
-    discount_filter=discount_filter,
     ranked_games_repo=ranked_games_repo,
-    reddit_post_ranker=reddit_post_ranker,
     reddit_post_repo=reddit_post_repo,
     ranked_reddit_posts_repo=ranked_reddit_posts_repo,
-    reddit_post_filter=reddit_post_filter,
     reddit_post_publication_repo=reddit_post_publication_repo,
-    reddit_dev_post_ranker=reddit_dev_post_ranker,
-    reddit_dev_post_filter=reddit_dev_post_filter,
-    reddit_meme_ranker=reddit_meme_ranker,
-    reddit_meme_filter=reddit_meme_filter,
     open_ai_client=client,
-    game_review_filter=game_review_filter,
     review_publication_repo=review_publication_repo,
+    checked_entity_repo=checked_entity_repo,
+    leaderboard_publication_repo=leaderboard_publication_repo,
+    leaderboard_repo=leaderboard_repo
 )
 
 publisher = PublisherService(
@@ -114,14 +84,14 @@ publisher = PublisherService(
     discount_publication_repo=discount_pub_repo,
     news_publication_repo=news_pub_repo,
     reddit_post_publication_repo=reddit_post_publication_repo,
-    editorial_refiner=editorial_refiner,
+    open_ai_client=client,
     review_publication_repo=review_publication_repo,
+    leaderboard_publication_repo=leaderboard_publication_repo,
 )
 
 
 orchestrator = Orchestrator(
     api_harvester=api_harvester,
     rank_engine=rank_engine,
-    publisher=publisher,
-    scheduler=scheduler
+    publisher=publisher
 )

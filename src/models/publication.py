@@ -6,6 +6,7 @@ from pydantic import Field, BaseModel
 from src.config import constants as C
 from src.models.base import BaseDBModel
 from src.models.game import PriceInfo, SteamExtendedInfo, PlatformsInfo, ReviewItem
+from src.models.speedrun import CategoryLeader
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -151,3 +152,18 @@ class ReviewPublication(BaseDBModel):
     ratio: Optional[float]
     reviews: list[ReviewItem]
     summary: Optional[ReviewSummary] = None
+
+
+class GameLeaderboardPublication(BaseDBModel):
+    channel: str = C.DEFAULT_TELEGRAM_CHANNEL
+    status: PublishStatus = PublishStatus.pending
+    message_id: Optional[str] = None
+    attempt: int = 0
+    error: Optional[str] = None
+    steam_appid: int | None = None
+    game_name: str
+    release_date: datetime
+    weblink: str
+    discord: str | None = None
+    category_leaderboards: list[CategoryLeader] = []
+    leaders_hash: str | None = None

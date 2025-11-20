@@ -5,6 +5,7 @@ from .reddit_posts_filter import RedditPostFilter
 from .reddit_game_dev_post_filter import RedditDevPostFilter
 from .reddit_meme_filter import RedditMemeFilter
 from .game_review_filter import GameReviewFilter
+from .liderboard_filter import LeaderboardFilter
 # ---------------------------------------------------------------------------------------------------------------------
 
 __all__ = [
@@ -14,6 +15,7 @@ __all__ = [
     "RedditPostFilter",
     "RedditDevPostFilter",
     "RedditMemeFilter",
-    "GameReviewFilter"
+    "GameReviewFilter",
+    "LeaderboardFilter"
 ]
 

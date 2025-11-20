@@ -5,7 +5,7 @@ from src.schemas import (
     GamePublicationRecordSchema,
     NewsPublicationSchema,
     DiscountPublicationSchema,
-    RedditPostPublicationSchema, AllocatedPostsSchema, ReviewPublicationSchema,
+    RedditPostPublicationSchema, AllocatedPostsSchema, ReviewPublicationSchema, GameLeaderboardPublicationSchema,
 )
 from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
@@ -25,6 +25,7 @@ class ContentAllocationStrategy:
         reddit_posts: list[RedditPostPublicationSchema],
         reddit_memes: list[RedditPostPublicationSchema],
         reviews: list[ReviewPublicationSchema],
+        game_leaderboards: list[GameLeaderboardPublicationSchema],
     ) -> None:
         self._log = get_logger().bind(service="ContentAllocationStrategy")
         self._news = news or []
@@ -33,6 +34,12 @@ class ContentAllocationStrategy:
         self._reddit_posts = reddit_posts or []
         self._reddit_memes = reddit_memes or []
         self._reviews = reviews or []
+        self._game_leaderboards = game_leaderboards or []
+
+    @property
+    def game_leaderboards(self) -> list[GameLeaderboardPublicationSchema]:
+        """The list of game leaderboards to be published."""
+        return self._game_leaderboards
 
     @property
     def news(self) -> list[NewsPublicationSchema]:
@@ -127,7 +134,8 @@ class ContentAllocationStrategy:
             "discounts": len(self._discounts),
             "reddit_posts": len(self._reddit_posts),
             "reddit_memes": len(self._reddit_memes),
-            "reviews": len(self._reviews)
+            "reviews": len(self._reviews),
+            "game_leaderboards": len(self._game_leaderboards)
         }
 
         deficit = {}

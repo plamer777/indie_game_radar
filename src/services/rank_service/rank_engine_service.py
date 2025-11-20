@@ -2,19 +2,21 @@ from datetime import datetime, timedelta
 from logging import Logger
 from openai import AsyncOpenAI
 from src.config import constants as C
-from src.db.repositories import GameRepository, GameSnapshotRepository, GamePublicationRepository, IGDBRepository
+from src.db.repositories import GameRepository, GameSnapshotRepository, GamePublicationRepository, IGDBRepository, \
+    CheckedEntityRepository
 from src.db.repositories.repositories import NewsPublicationRepository, DiscountPublicationRepository, \
     RankedGameRepository, RedditPostRepository, RankedRedditPostRepository, RedditPostPublicationRepository, \
-    ReviewPublicationRepository
+    ReviewPublicationRepository, GameLeaderboardPublicationRepository, LeaderboardRepository
 from src.models import RankedGameModel, GameModel
 from src.schemas import GamePublicationRecordSchema, NewsPublicationSchema, RankedGameSchema, \
-    RedditPostPublicationSchema, DiscountPublicationSchema, ReviewPublicationSchema
+    RedditPostPublicationSchema, DiscountPublicationSchema, ReviewPublicationSchema, GameLeaderboardPublicationSchema
 from src.schemas.reddit_schemas import RankedRedditPostSchema
 from src.services.base_service import BaseService
-from src.services.rank_service.adapters import NewsPublicationAdapter, RedditPublicationAdapter
+from src.services.rank_service.adapters import NewsPublicationAdapter, RedditPublicationAdapter, \
+    GameLeaderboardPublicationAdapter
 from src.services.shared_dependencies.calculators import NewsStatCalculator
 from src.services.rank_service.filters import GameFilter, NewsFilter, DiscountFilter, RedditPostFilter, \
-    RedditDevPostFilter, RedditMemeFilter, GameReviewFilter
+    RedditDevPostFilter, RedditMemeFilter, GameReviewFilter, LeaderboardFilter
 from src.services.rank_service.rankers import NewsRanker, RedditPostRanker, RedditDevPostRanker, RedditMemeRanker
 from src.services.rank_service.rankers.ranker import GameRanker
 from src.utils.logging import get_logger
@@ -26,53 +28,64 @@ class RankEngineService(BaseService):
     def __init__(
         self, games_repo: GameRepository, game_snapshot_repo: GameSnapshotRepository,
         publish_repo: GamePublicationRepository,
-        igdb_repo: IGDBRepository,
-        game_ranker: GameRanker,
-        game_filter: GameFilter,
-        news_ranker: NewsRanker,
-        news_filter: NewsFilter,
+        igdb_repo: IGDBRepository,       
         news_publication_repo: NewsPublicationRepository,
-        discount_filter: DiscountFilter,
+        leaderboard_publication_repo: GameLeaderboardPublicationRepository,
         discount_publication_repo: DiscountPublicationRepository,
-        ranked_games_repo: RankedGameRepository,
-        reddit_post_ranker: RedditPostRanker,
-        reddit_dev_post_ranker: RedditDevPostRanker,
+        ranked_games_repo: RankedGameRepository,       
         reddit_post_repo: RedditPostRepository,
-        ranked_reddit_posts_repo: RankedRedditPostRepository,
-        reddit_post_filter: RedditPostFilter,
-        reddit_post_publication_repo: RedditPostPublicationRepository,
-        reddit_dev_post_filter: RedditDevPostFilter,
-        reddit_meme_filter: RedditMemeFilter,
-        reddit_meme_ranker: RedditMemeRanker,
-        open_ai_client: AsyncOpenAI,
-        game_review_filter: GameReviewFilter,
+        ranked_reddit_posts_repo: RankedRedditPostRepository,       
+        reddit_post_publication_repo: RedditPostPublicationRepository,       
+        open_ai_client: AsyncOpenAI,   
         review_publication_repo: ReviewPublicationRepository,
-    ):
+        checked_entity_repo: CheckedEntityRepository,
+        leaderboard_repo: LeaderboardRepository
+    ) -> None:
+        """The constructor of RankEngineService.
+        :param games_repo: The game repository.
+        :param game_snapshot_repo: The game snapshot repository.
+        :param publish_repo: The game publication repository.
+        :param igdb_repo: The IGDB repository.
+        :param news_publication_repo: The news publication repository.
+        :param leaderboard_publication_repo: The leaderboard publication repository.
+        :param discount_publication_repo: The discount publication repository.
+        :param ranked_games_repo: The ranked games repository.
+        :param reddit_post_repo: The reddit post repository.
+        :param ranked_reddit_posts_repo: The ranked reddit posts repository.
+        :param reddit_post_publication_repo: The reddit post publication repository.
+        :param open_ai_client: The OpenAI client.
+        :param review_publication_repo: The review publication repository.
+        :param checked_entity_repo: The checked entity repository.
+        :param leaderboard_repo: The leaderboard repository.
+        """
         super().__init__()
         self._log = get_logger().bind(service="rank_engine")
         self._games = games_repo
         self._game_snapshot_repo = game_snapshot_repo
-        self._publish_repo = publish_repo
+        self._game_publication_repo = publish_repo
         self._igdb = igdb_repo
-        self._ranker = game_ranker
-        self._filter = game_filter
-        self._news_ranker = news_ranker
-        self._news_filter = news_filter
+        self._ranker = GameRanker()
+        self._filter = GameFilter()
+        self._news_ranker = NewsRanker()
+        self._news_filter = NewsFilter(open_ai_client, checked_entity_repo)
+        self._leaderboard_filter = LeaderboardFilter()
         self._news_publication_repo = news_publication_repo
-        self._discount_filter = discount_filter
+        self._discount_filter = DiscountFilter()
         self._discount_publication_repo = discount_publication_repo
         self._ranked_games_repo = ranked_games_repo
         self._news_stat_calculator = NewsStatCalculator()
-        self._reddit_post_ranker = reddit_post_ranker
+        self._reddit_post_ranker = RedditPostRanker()
         self._reddit_post_repo = reddit_post_repo
+        self._leaderboard_repo = leaderboard_repo
         self._ranked_reddit_posts_repo = ranked_reddit_posts_repo
-        self._reddit_post_filter = reddit_post_filter
+        self._leaderboard_publication_repo = leaderboard_publication_repo
+        self._reddit_post_filter = RedditPostFilter(open_ai_client, checked_entity_repo)
         self._reddit_post_publication_repo = reddit_post_publication_repo
-        self._reddit_dev_post_ranker = reddit_dev_post_ranker
-        self._reddit_dev_post_filter = reddit_dev_post_filter
-        self._reddit_meme_ranker = reddit_meme_ranker
-        self._reddit_meme_filter = reddit_meme_filter
-        self._game_review_filter = game_review_filter
+        self._reddit_dev_post_ranker = RedditDevPostRanker()
+        self._reddit_dev_post_filter = RedditDevPostFilter(open_ai_client, checked_entity_repo)
+        self._reddit_meme_ranker = RedditMemeRanker()
+        self._reddit_meme_filter = RedditMemeFilter()
+        self._game_review_filter = GameReviewFilter()
         self._review_publication_repo = review_publication_repo
         self._news_publication_adapter = NewsPublicationAdapter(
             open_ai_client=open_ai_client,
@@ -82,8 +95,12 @@ class RankEngineService(BaseService):
             open_ai_client=open_ai_client,
             reddit_publication_repo=reddit_post_publication_repo
         )
+        self._game_leaderboard_publication_adapter = GameLeaderboardPublicationAdapter(
+            leaderboard_publication_repo=leaderboard_publication_repo
+        )
 
-    async def rank_all(self):
+    async def rank_all(self) -> None:
+        """The main method serves to start ranking process for all entities"""
         cycle_log = self._log.bind(method="rank_all")
         cycle_log.info("ranking games and news")
         await self.rank_games()
@@ -91,7 +108,7 @@ class RankEngineService(BaseService):
         await self.rank_game_meme_reddit_posts(cycle_log)
 
     async def rank_games(self) -> None:
-        """The main method for ranking games.
+        """The main method for ranking games and another entities related to Steam games
         """
         cycle_log = self._log.bind(method="rank_games")
         cycle_log.info("cycle_start")
@@ -131,6 +148,10 @@ class RankEngineService(BaseService):
                 cycle_log.error("rank_games", exc_info=True, error=e)
 
     async def filter_games(self, top_n: int) -> list[GamePublicationRecordSchema]:
+        """The method filters games.
+        :param top_n: The number of games to return.
+        :return: The list of games.
+        """
         cycle_log = self._log.bind(method="filter_games")
         cycle_log.info("started")
         now = datetime.now()
@@ -148,7 +169,7 @@ class RankEngineService(BaseService):
         unpublished = []
         async for game in scored_games:
             try:
-                was = await self._publish_repo.was_published(game.steam_appid)
+                was = await self._game_publication_repo.was_published(game.steam_appid)
                 if was:
                     continue
                 meta = await self._igdb.get_one({'steam_appid': game.steam_appid})
@@ -163,7 +184,7 @@ class RankEngineService(BaseService):
 
         return unpublished
 
-    def _rank_game_news(self, game: RankedGameModel | RankedGameSchema | GameModel, cycle_log: Logger):
+    def _rank_game_news(self, game: RankedGameModel | RankedGameSchema | GameModel, cycle_log: Logger) -> None:
         """The method ranks news for a game.
         :param game: The game to rank news for.
         :param cycle_log: The logger to use.
@@ -179,6 +200,10 @@ class RankEngineService(BaseService):
             cycle_log.error(f"Error ranking news for game {game.steam_appid}: {e}")
 
     async def _rank_reddit_posts(self, game: RankedGameModel | RankedGameSchema | GameModel, cycle_log: Logger) -> None:
+        """The method ranks reddit posts for a game.
+        :param game: The game to rank reddit posts for.
+        :param cycle_log: The logger to use for logging.
+        """
         try:
             reddit_game_related_posts = await self._reddit_post_repo.get_all(
                 {'steam_appid': game.steam_appid}, sort_by={'updated_at': -1}, generator_mode=True
@@ -201,6 +226,9 @@ class RankEngineService(BaseService):
             cycle_log.error(f"Error ranking reddit posts for game {game.steam_appid}: {e}")
 
     async def rank_game_dev_story_reddit_posts(self, cycle_log: Logger) -> None:
+        """The method ranks game dev story reddit posts.
+        :param cycle_log: The logger to use for logging.
+        """
         try:
             max_ranked_date = await self._ranked_reddit_posts_repo.get_max_value(
                 field_name='last_ranked_at', params={'type': 'game_dev_story'}
@@ -228,6 +256,9 @@ class RankEngineService(BaseService):
             cycle_log.error(f"Error ranking game dev reddit posts: {e}")
 
     async def rank_game_meme_reddit_posts(self, cycle_log: Logger) -> None:
+        """The method ranks game meme reddit posts.
+        :param cycle_log: The logger object to use for logging.
+        """
         try:
             max_ranked_date = await self._ranked_reddit_posts_repo.get_max_value(
                 field_name='last_ranked_at', params={'type': 'meme'}
@@ -253,8 +284,52 @@ class RankEngineService(BaseService):
 
         except Exception as e:
             cycle_log.error(f"Error ranking game dev reddit posts: {e}")
+    
+    async def filter_game_leaderboards(self, top_n: int) -> list[GameLeaderboardPublicationSchema]:
+        """The method filters games leaderboards.
+        :param top_n: The number of leaderboards to return.
+        :return: The list of leaderboards.
+        """
+        cycle_log = self._log.bind(method="filter_games_leaderboards")
+        cycle_log.info("started")        
+        now = datetime.now()
+        game_leaderboards = await self._leaderboard_repo.get_all(
+            {'updated_at': {'$gte': now - timedelta(days=C.GAME_LEADERBOARD_FILTER_MAX_AGE_DAYS)}},
+            generator_mode=True
+        )
+        unpublished = []
+        async for leaderboard in game_leaderboards:
+            try:
+                scored_game = await self._ranked_games_repo.get_one(
+                    {
+                        'last_score': {'$gte': C.GAME_LEADERBOARD_FILTER_RATING_MIN},
+                        'steam_appid': leaderboard.steam_appid
+                    },
+                )
+                if not scored_game:
+                    continue
 
+                leaderboard_publication = GameLeaderboardPublicationSchema(
+                    **leaderboard.model_dump(), game_name=scored_game.name
+                )
+                was = await self._game_leaderboard_publication_adapter.was_published(leaderboard_publication)
+                if was:
+                    continue
+
+                if self._leaderboard_filter.should_publish(scored_game):
+                    unpublished.append(leaderboard_publication)
+                    if len(unpublished) >= top_n:
+                        break
+            except Exception as e:
+                cycle_log.error("filter_games_leaderboards", exc_info=True, error=e)
+
+        return unpublished
+    
     async def filter_news(self, top_n: int) -> list[NewsPublicationSchema]:
+        """The method filters gaming news.
+        :param top_n: The number of news to return.
+        :return: The list of news.
+        """
         cycle_log = self._log.bind(method="filter_news")
         cycle_log.info("started")
         now = datetime.now()
@@ -289,6 +364,10 @@ class RankEngineService(BaseService):
         return unpublished
 
     async def filter_reviews(self, top_n: int) -> list[ReviewPublicationSchema]:
+        """The method filters game reviews.
+        :param top_n: The number of reviews to return.
+        :return: The list of reviews.
+        """
         cycle_log = self._log.bind(method="filter_reviews")
         cycle_log.info("started")
         now = datetime.now()
@@ -321,6 +400,10 @@ class RankEngineService(BaseService):
         return unpublished
 
     async def filter_reddit_posts(self, top_n: int) -> list[RedditPostPublicationSchema]:
+        """The method filters game-related reddit posts.
+        :param top_n: The number of posts to return.
+        :return: The list of posts.
+        """
         cycle_log = self._log.bind(method="filter_reddit_posts")
         cycle_log.info("started")
         now = datetime.now()
@@ -354,6 +437,10 @@ class RankEngineService(BaseService):
         return unpublished
 
     async def filter_game_dev_reddit_posts(self, top_n: int) -> list[RedditPostPublicationSchema]:
+        """The method filters reddit posts related to game development.
+        :param top_n: The number of posts to return.
+        :return: The list of posts.
+        """
         cycle_log = self._log.bind(method="filter_reddit_posts")
         cycle_log.info("started")
 
@@ -382,6 +469,10 @@ class RankEngineService(BaseService):
         return unpublished
 
     async def filter_game_meme_reddit_posts(self, top_n: int) -> list[RedditPostPublicationSchema]:
+        """The method filters reddit posts related to game memes.
+        :param top_n: The number of posts to return.
+        :return: The list of posts.
+        """
         cycle_log = self._log.bind(method="filter_game_meme_reddit_posts")
         cycle_log.info("started")
 
@@ -417,6 +508,10 @@ class RankEngineService(BaseService):
         return unpublished
 
     async def filter_discounts(self, top_n: int) -> list[DiscountPublicationSchema]:
+        """The method filters discounts.
+        :param top_n: The number of discounts to return.
+        :return: The list of discounts.
+        """
         cycle_log = self._log.bind(method="filter_discounts")
         cycle_log.info("started")
         now = datetime.now()

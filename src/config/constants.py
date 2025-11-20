@@ -61,6 +61,7 @@ NEWS_PUBLICATIONS_COLLECTION = "news_publications"
 REDDIT_PUBLICATIONS_COLLECTION = "reddit_publications"
 CHECKED_ENTITIES_COLLECTION = "checked_entities"
 DISCOUNT_PUBLICATIONS_COLLECTION = "discount_publications"
+GAME_LEADERBOARD_PUBLICATIONS_COLLECTION = "leaderboard_publications"
 APPS_COLLECTION = "steam_apps"
 GAME_SNAPSHOTS_COLLECTION = "game_snapshots"
 STATIC_FIELDS = ['created_at']
@@ -482,6 +483,10 @@ REDDIT_MEME_RANKER_MAX_COMMENTS = 2000           # верхний предел �
 REVIEWS_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 365
 REVIEWS_FILTER_GAME_RATING_MIN = 0.3
 # ---------------------------------------------------------------------------------------------------------------------
+# Game leaderboards filter
+GAME_LEADERBOARD_FILTER_RATING_MIN = 0.3
+GAME_LEADERBOARD_FILTER_MAX_AGE_DAYS = 14
+# ---------------------------------------------------------------------------------------------------------------------
 # News filter
 NEWS_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
 NEWS_FILTER_DUPLICATION_CHECKING_MAX_AGE_DAYS = 30
@@ -643,13 +648,16 @@ TIME_WINDOWS = {
 # Базовые приоритеты по времени суток
 TIME_PRIORITIES = {
     "morning": {
-        "news": 0.1, "reddit_posts": 0.35, "games": 0.0, "discounts": 0.15, "reddit_memes": 0.4, "reviews": 0.0
+        "news": 0.1, "reddit_posts": 0.35, "games": 0.0, "discounts": 0.15, "reddit_memes": 0.4, "reviews": 0.0,
+        "game_leaderboards": 0.0
     },
     "day": {
-        "news": 0.2, "games": 0.1, "discounts": 0.2, "reddit_posts": 0.2, "reddit_memes": 0.3, "reviews": 0.1
+        "news": 0.2, "games": 0.1, "discounts": 0.1, "reddit_posts": 0.2, "reddit_memes": 0.2, "reviews": 0.1,
+        "game_leaderboards": 0.2
     },
     "evening": {
-        "news": 0.1, "games": 0.1, "discounts": 0.3, "reddit_posts": 0.3, "reddit_memes": 0.2, "reviews": 0.0
+        "news": 0.1, "games": 0.1, "discounts": 0.3, "reddit_posts": 0.3, "reddit_memes": 0.2, "reviews": 0.0,
+        "game_leaderboards": 0.2
     },
 }
 

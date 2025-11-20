@@ -6,15 +6,16 @@ from pydantic import BaseModel
 from src.config.constants import GAMES_COLLECTION, IGDB_META_COLLECTION, GAME_PUBLICATIONS_COLLECTION, APPS_COLLECTION, \
     GAME_SNAPSHOTS_COLLECTION, NEWS_PUBLICATIONS_COLLECTION, DISCOUNT_PUBLICATIONS_COLLECTION, RANKED_GAMES_COLLECTION, \
     REDDIT_POSTS_COLLECTION, RANKED_REDDIT_POSTS_COLLECTION, CHECKED_ENTITIES_COLLECTION, \
-    REDDIT_PUBLICATIONS_COLLECTION, REVIEW_PUBLICATIONS_COLLECTION, LEADERBOARD_COLLECTION
+    REDDIT_PUBLICATIONS_COLLECTION, REVIEW_PUBLICATIONS_COLLECTION, LEADERBOARD_COLLECTION, \
+    GAME_LEADERBOARD_PUBLICATIONS_COLLECTION
 from src.db.repositories.base_repo import BaseRepository
 from src.models.game import GameModel, AppModel, GameSnapshot, RankedGameModel
 from src.models import IGDBMeta, RedditPost, RankedRedditPost, CheckedEntity, GameLeaderboard
 from src.models.publication import GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication, \
-    RedditPostPublication, ReviewPublication
+    RedditPostPublication, ReviewPublication, GameLeaderboardPublication
 from src.config import constants as C
 from src.schemas import GamePublicationRecordSchema, NewsPublicationSchema, RedditPostPublicationSchema, \
-    DiscountPublicationSchema
+    DiscountPublicationSchema, GameLeaderboardPublicationSchema
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -92,6 +93,40 @@ class GamePublicationRepository(BaseRepository[GamePublicationRecord]):
     async def was_published(self, steam_appid: int, channel: str = "telegram") -> bool:
         doc = await self._collection.find_one(
             {"steam_appid": steam_appid, "channel": channel, "status": PublishStatus.published}
+        )
+        return doc is not None
+
+
+class GameLeaderboardPublicationRepository(BaseRepository[GameLeaderboardPublication]):
+    def __init__(
+        self, collection_name: str = GAME_LEADERBOARD_PUBLICATIONS_COLLECTION,
+        model: type[GameLeaderboardPublication] = GameLeaderboardPublication,
+        db: AsyncIOMotorDatabase | None = None
+    ) -> None:
+        super().__init__(collection_name, model, db)
+
+    async def mark_published(self, record: GameLeaderboardPublicationSchema, search_field: str = 'steam_appid') -> None:
+        await super().mark_published(record, search_field=search_field)
+
+    async def mark_failed(
+        self, record: GameLeaderboardPublicationSchema, error: str, search_field: str = 'steam_appid'
+    ) -> None:
+        await super().mark_failed(record, error, search_field=search_field)
+
+    async def was_published(
+        self, record: GameLeaderboardPublicationSchema, channel: str = "telegram"
+    ) -> bool:
+        """The method checks if the leaderboard was published.
+        :param record: The leaderboard publication record.
+        :param channel: The channel to check for.
+        :return: True if the leaderboard was published, False otherwise.
+        """
+        doc = await self._collection.find_one(
+            {
+                "steam_appid": record.steam_appid,
+                "leaders_hash": record.leaders_hash,
+                "channel": channel, "status": PublishStatus.published
+            }
         )
         return doc is not None
 

@@ -5,7 +5,7 @@ from src.schemas import (
     DiscountPublicationSchema,
     NewsPublicationSchema,
     RedditPostPublicationSchema,
-    AllocatedPostsSchema, ReviewPublicationSchema,
+    AllocatedPostsSchema, ReviewPublicationSchema, GameLeaderboardPublicationSchema,
 )
 from src.templates import (
     GAME_POST_TEMPLATES,
@@ -13,6 +13,7 @@ from src.templates import (
     NEWS_POST_TEMPLATES,
     REDDIT_POST_TEMPLATES,
 )
+from src.templates.leaderboard_puplications import GAME_LEADERBOARD_TEMPLATES
 from src.templates.reddit_meme_puplications import REDDIT_MEME_TEMPLATES
 from src.templates.reviews_publications import REVIEWS_SUMMARY_TEMPLATES
 from src.utils.common import clean_text
@@ -38,6 +39,7 @@ class PostRenderer:
             "reddit_posts": self._render_reddit_post,
             "reddit_memes": self._render_meme_post,
             "reviews": self._render_review_summary_post,
+            "game_leaderboards": self._render_game_leaderboard_post,
         }
 
     # ------------------------------------------------------------
@@ -48,6 +50,24 @@ class PostRenderer:
             raise ValueError(f"Unsupported publication type: {record_type}")
         return self._builders[record_type](record.post)
 
+    # ------------------------------------------------------------
+    # --- GAME LEADERBOARD POST ---
+    def _render_game_leaderboard_post(self, leaderboard: GameLeaderboardPublicationSchema) -> str:
+        """Renders a game leaderboard post template.
+        :param leaderboard: The leaderboard to render
+        :return: The rendered game leaderboard post template
+        """
+        context = {
+            "game_name": leaderboard.game_name,
+            "category_leaderboards": [
+                cat_leaderboard.model_dump() for cat_leaderboard in leaderboard.category_leaderboards
+            ],
+            "steam_appid": leaderboard.steam_appid,
+            "weblink": leaderboard.weblink,
+        }
+
+        template = self.env.from_string(random.choice(GAME_LEADERBOARD_TEMPLATES))
+        return template.render(**context).strip()
     # ------------------------------------------------------------
     # --- REVIEW SUMMARY POST ---
     def _render_review_summary_post(self, review: ReviewPublicationSchema) -> str:

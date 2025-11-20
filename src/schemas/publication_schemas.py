@@ -6,6 +6,7 @@ from typing_extensions import Literal
 from src.config import constants as C
 from src.models.game import PriceInfo, SteamExtendedInfo, PlatformsInfo, ReviewItem
 from src.models.publication import PublishStatus, ReviewSummary
+from src.models.speedrun import CategoryLeader
 from src.schemas.base import BaseSchema
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -137,10 +138,25 @@ class ReviewPublicationSchema(BaseSchema):
     summary: Optional[ReviewSummary] = None
 
 
+class GameLeaderboardPublicationSchema(BaseSchema):
+    channel: str = C.DEFAULT_TELEGRAM_CHANNEL
+    status: PublishStatus = PublishStatus.pending
+    message_id: Optional[str] = None
+    attempt: int = 0
+    error: Optional[str] = None
+    steam_appid: int | None = None
+    game_name: str
+    release_date: datetime
+    weblink: str
+    discord: str | None = None
+    category_leaderboards: list[CategoryLeader] = []
+    leaders_hash: str | None = None
+
+
 class AllocatedPostsSchema(BaseSchema):
     category: str
     post: Union[
         GamePublicationRecordSchema, NewsPublicationSchema, DiscountPublicationSchema, RedditPostPublicationSchema,
-        ReviewPublicationSchema
+        ReviewPublicationSchema, GameLeaderboardPublicationSchema
     ]
     publish_time: datetime | None = None

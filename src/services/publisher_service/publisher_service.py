@@ -1,9 +1,10 @@
 import asyncio
 from datetime import datetime, UTC
+from openai import AsyncOpenAI
 from src.clients.telegram_client import TelegramPublisher
 from src.db.repositories import (
     GamePublicationRepository, DiscountPublicationRepository, NewsPublicationRepository,
-    RedditPostPublicationRepository, ReviewPublicationRepository
+    RedditPostPublicationRepository, ReviewPublicationRepository, GameLeaderboardPublicationRepository
 )
 from src.models.publication import PublishStatus, ReviewSummary
 from src.schemas import AllocatedPostsSchema
@@ -23,18 +24,20 @@ class PublisherService(BaseService):
         discount_publication_repo: DiscountPublicationRepository,
         news_publication_repo: NewsPublicationRepository,
         reddit_post_publication_repo: RedditPostPublicationRepository,
-        editorial_refiner: EditorialRefiner,
+        open_ai_client: AsyncOpenAI,
         review_publication_repo: ReviewPublicationRepository,
+        leaderboard_publication_repo: GameLeaderboardPublicationRepository,
     ):
         self._game_publication_repo = publication_repo
         self._discount_publication_repo = discount_publication_repo
         self._news_publication_repo = news_publication_repo
         self._reddit_post_publication_repo = reddit_post_publication_repo
         self._review_publication_repo = review_publication_repo
+        self._leaderboard_publication_repo = leaderboard_publication_repo
         self._publisher = publisher
         self._log = get_logger().bind(service="PublisherService")
         self._renderer = PostRenderer()
-        self._editor = editorial_refiner
+        self._editor = EditorialRefiner(open_ai_client)
         self._repo_mapper = {
             "games": self._game_publication_repo,
             "discounts": self._discount_publication_repo,
@@ -42,6 +45,7 @@ class PublisherService(BaseService):
             "reddit_posts": self._reddit_post_publication_repo,
             "reddit_memes": self._reddit_post_publication_repo,
             "reviews": self._review_publication_repo,
+            "game_leaderboards": self._leaderboard_publication_repo,
         }
 
     async def count_published_for_today(self) -> int:

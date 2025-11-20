@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 from src.clients import RedditClient, SpeedrunClient
 from src.config import constants as C
@@ -63,7 +63,7 @@ class APIHarvesterService(BaseService):
         cycle_log = self._log.bind(method="fetch_cycle")
         cycle_log.info("cycle_start")
 
-        # # a) периодически обновляем список app
+        # a) периодически обновляем список app
         await self.fetch_steam_apps()
         # # b) выгружаем свежие посты по ключевым запросам гейм дева и мемы
         await self.fetch_game_dev_reddit_posts()

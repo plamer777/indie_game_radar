@@ -4,7 +4,6 @@ import logging
 from datetime import datetime, timedelta, UTC
 from typing import Optional
 from src.orchestrators.strategies import ContentAllocationStrategy
-from src.scheduler.scheduler import AsyncScheduler
 from src.schemas import AllocatedPostsSchema
 from src.services.data_service import APIHarvesterService
 from src.services.publisher_service import PublisherService
@@ -20,14 +19,12 @@ class Orchestrator:
         self,
         api_harvester: APIHarvesterService,
         rank_engine: RankEngineService,
-        publisher: PublisherService,
-        scheduler: AsyncScheduler,
+        publisher: PublisherService
     ) -> None:
         self._api_harvester = api_harvester
         self._rank_engine = rank_engine
         self._publisher = publisher
         self._log = get_logger().bind(service="orchestrator")
-        self._scheduler = scheduler
 
     async def start(self):
         await self._start_harvester()
@@ -91,6 +88,7 @@ class Orchestrator:
             filtered_reviews_to_publish = await self._rank_engine.filter_reviews(top_n)
             filtered_games_to_publish = await self._rank_engine.filter_games(top_n)
             filtered_news_to_publish = await self._rank_engine.filter_news(top_n)
+            filtered_game_leaderboards_to_publish = await self._rank_engine.filter_game_leaderboards(top_n)
             filtered_discounts = await self._rank_engine.filter_discounts(top_n)
             filtered_reddis_posts = await self._rank_engine.filter_reddit_posts(top_n)
             filtered_game_dev_reddit_posts = await self._rank_engine.filter_game_dev_reddit_posts(
@@ -103,7 +101,8 @@ class Orchestrator:
             content_strategy = ContentAllocationStrategy(
                 games=filtered_games_to_publish, news=filtered_news_to_publish, discounts=filtered_discounts,
                 reddit_posts=filtered_reddis_posts, reddit_memes=filtered_game_meme_reddit_posts,
-                reviews=filtered_reviews_to_publish
+                reviews=filtered_reviews_to_publish,
+                game_leaderboards=filtered_game_leaderboards_to_publish
             )
             allocated = content_strategy.schedule_daily_posts(top_n)
             if len(allocated) == top_n:

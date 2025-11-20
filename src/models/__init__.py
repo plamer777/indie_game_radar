@@ -2,7 +2,7 @@ from .igdb import PopularityMetrics, IGDBMeta
 from .game import GameModel, RankedGameModel, GameSnapshot, AppModel
 from .publication import (
     GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication, RedditPostPublication,
-    ReviewPublication
+    ReviewPublication, GameLeaderboardPublication
 )
 from .reddit import RedditPost, RankedRedditPost
 from .checked_record import CheckedEntity
@@ -24,5 +24,6 @@ __all__ = [
     "RankedRedditPost",
     "RedditPostPublication",
     "CheckedEntity",
-    "GameLeaderboard"
+    "GameLeaderboard",
+    "GameLeaderboardPublication"
 ]

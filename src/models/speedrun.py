@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, field_validator, Field, AliasPath
+from pydantic import BaseModel, field_validator, Field, AliasPath, AliasChoices
 from src.models.base import BaseDBModel
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ class Category(BaseModel):
 
 class Player(BaseModel):
     id: str
-    name: str = Field(validation_alias=AliasPath('names', 'international'))
+    name: str = Field(validation_alias=AliasChoices(AliasPath('names', 'international'), 'name'))
     weblink: str
     role: str | None = None
 
@@ -32,6 +32,8 @@ class Result(BaseModel):
 
     @field_validator('videos', mode='before')
     def validate_videos(cls, v):
+        if type(v) is list:
+            return v
         videos = v.get('links', [])
         return [video.get('uri') for video in videos if video.get('uri')]
 
