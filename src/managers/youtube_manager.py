@@ -71,4 +71,3 @@ class YoutubeManager:
                 self._download_complete = True
         except Exception as e:
             self._log.error(f'Failed to download fragment: {e}')
-

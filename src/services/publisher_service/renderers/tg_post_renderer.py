@@ -150,7 +150,6 @@ class PostRenderer:
         context = {
             "title": news.title,
             "contents": news.contents or "",
-            "appid": news.appid,
             "feedlabel": news.feedlabel or "Steam News",
             "author": news.author or "—",
             "date": news.date.strftime("%B %d, %Y") if news.date else "—",

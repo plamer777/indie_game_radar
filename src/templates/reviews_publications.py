@@ -39,6 +39,8 @@ REVIEWS_SUMMARY_TEMPLATES = [
 
 <a href="{{ image }}">&#8205;</a>
 {% endif %}
+
+#gamereview #gamecritic
 """,
 
 # --- Template 2: Analytical Review ---
@@ -78,6 +80,8 @@ REVIEWS_SUMMARY_TEMPLATES = [
 
 <a href="https://store.steampowered.com/app/{{ steam_appid }}">Steam</a>
 {% if image %}
+
+#indiereview #indiegamecritic
 
 <a href="{{ image }}">&#8205;</a>
 {% endif %}
@@ -123,5 +127,7 @@ REVIEWS_SUMMARY_TEMPLATES = [
 
 <a href="{{ image }}">&#8205;</a>
 {% endif %}
+
+#indiegamereview #gamesentiment
 """
 ]

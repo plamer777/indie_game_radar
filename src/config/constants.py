@@ -653,11 +653,11 @@ TIME_PRIORITIES = {
         "game_leaderboards": 0.0
     },
     "day": {
-        "news": 0.2, "games": 0.1, "discounts": 0.1, "reddit_posts": 0.2, "reddit_memes": 0.2, "reviews": 0.1,
-        "game_leaderboards": 0.2
+        "news": 0.2, "games": 0.3, "discounts": 0.1, "reddit_posts": 0.2, "reddit_memes": 0.1, "reviews": 0.1,
+        "game_leaderboards": 0.0
     },
     "evening": {
-        "news": 0.1, "games": 0.1, "discounts": 0.3, "reddit_posts": 0.3, "reddit_memes": 0.2, "reviews": 0.0,
+        "news": 0.1, "games": 0.1, "discounts": 0.2, "reddit_posts": 0.1, "reddit_memes": 0.1, "reviews": 0.2,
         "game_leaderboards": 0.2
     },
 }

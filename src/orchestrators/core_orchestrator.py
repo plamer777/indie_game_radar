@@ -27,8 +27,8 @@ class Orchestrator:
         self._log = get_logger().bind(service="orchestrator")
 
     async def start(self):
-        await self._start_harvester()
-        await self._start_ranker()
+        # await self._start_harvester()
+        # await self._start_ranker()
         await self._run_cycle(top_n=C.DEFAULT_DAILY_POSTS)
 
     @execute_in_thread

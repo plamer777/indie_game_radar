@@ -5,7 +5,6 @@ GAME_POST_TEMPLATES = [
 {% if image_url %}
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
-
 {{ short_description | safe }}
 
 <b>Developed by:</b> {{ developers }}
@@ -39,7 +38,6 @@ GAME_POST_TEMPLATES = [
 {% if image_url %}
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
-
 {{ short_description | safe }}
 
 <b>Publishers:</b> {{ publishers }}
@@ -70,7 +68,6 @@ GAME_POST_TEMPLATES = [
 {% if image_url %}
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
-
 {{ short_description | safe }}
 
 <b>Available on:</b> {{ platforms }}

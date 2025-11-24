@@ -6,10 +6,7 @@ NEWS_POST_TEMPLATES = [
 {% if image_url %}
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
-
 {{ contents | safe }}
-
-<b>Game ID:</b> {{ appid }}
   
 <b>Source:</b> {{ feedlabel }}
   
@@ -26,17 +23,16 @@ NEWS_POST_TEMPLATES = [
 
 # --- Template 2 ---
 """
-⚙️ <b>Update News for Steam App #{{ appid }}</b>
+⚙️ <b>Update News for Steam Game</b>
 
 {{ title | safe }}
 {% if image_url %}
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
-
 {{ contents | safe }}
 
 <b>Published on:</b> {{ date }}
-  
+
 <a href="{{ url }}">Read more</a>
 
 <a href="https://store.steampowered.com/app/{{ steam_appid }}">Steam Page</a>
@@ -50,11 +46,12 @@ NEWS_POST_TEMPLATES = [
 {% if image_url %}
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
-
 {{ contents | safe }}
 
 By {{ author }}
-  
+
+📅 {{ date }}
+
 <a href="{{ url }}">📖 Full story</a>
   
 <a href="https://store.steampowered.com/app/{{ steam_appid }}">Steam Page</a>

@@ -21,13 +21,11 @@ class RetryPolicy:
         self.retry_exceptions = tuple(retry_exceptions)
         self.jitter = jitter
 
-    async def run(self, coro: Callable[[], Awaitable[Any]]) -> Any:
-        last_exc = None
+    async def run(self, coro: Callable[[Any | None], Awaitable[Any]], **kwargs) -> Any:
         for attempt in range(self.retries + 1):
             try:
-                return await coro()
-            except self.retry_exceptions as exc:  # type: ignore[misc]
-                last_exc = exc
+                return await coro(**kwargs)
+            except self.retry_exceptions:  # type: ignore[misc]
                 if attempt >= self.retries:
                     break
                 delay = min(self.max_delay, self.base_delay * (2 ** attempt))

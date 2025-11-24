@@ -19,6 +19,15 @@ class PopularityMetrics(BaseModel):
     popularity: Optional[float] = None
 
 
+class TimeToBeat(BaseModel):
+    count: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    hastily: Optional[int] = None
+    normally: Optional[int] = None
+    completely: Optional[int] = None
+
+
 class IGDBMeta(BaseDBModel):
     igdb_id: int
     name: str
@@ -31,6 +40,7 @@ class IGDBMeta(BaseDBModel):
     screenshots: List[str] = Field(default_factory=list)
     websites: List[str] = Field(default_factory=list)
     metrics: PopularityMetrics = Field(default_factory=PopularityMetrics)
+    time_to_beat: Optional[TimeToBeat] = None
     themes: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
     videos: List[str] = Field(default_factory=list)

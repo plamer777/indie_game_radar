@@ -37,6 +37,7 @@ REDDIT_POST_TEMPLATES = [
 
 > {% if extract_snippet %}{{ extract_snippet | safe }}{% elif selftext %}{{ selftext[:4000] | safe }}...{% endif %}
 
+
 🧩 Shared by {{ author  }} on r/{{ subreddit }}
   
 <a href="{{ permalink }}">Open Reddit Thread</a>  
@@ -55,7 +56,6 @@ REDDIT_POST_TEMPLATES = [
 """
 💬 <b>{{ title | safe }}</b>
 {% if image_url %}
-
 <a href="{{ image_url }}">&#8205;</a>
 {% endif %}
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 from pydantic import Field, field_validator
 from typing import Optional, List
 from datetime import datetime
-from src.models import PopularityMetrics
+from src.models import PopularityMetrics, TimeToBeat
 from src.schemas.base import BaseSchema
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -19,6 +19,7 @@ class IGDBMetaSchema(BaseSchema):
     screenshots: List[str] = Field(default_factory=list)
     websites: List[str] = Field(default_factory=list)
     metrics: PopularityMetrics = Field(default_factory=PopularityMetrics)
+    time_to_beat: Optional[TimeToBeat] = None
     themes: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
     videos: List[str] = Field(default_factory=list)

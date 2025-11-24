@@ -11,7 +11,7 @@ from src.clients.shared_dependencies.rate_limiter import SemaphoreLimiter
 from src.managers.cache import RedisCache
 from src.utils.logging import get_logger
 from src.config.settings import settings
-from src.models import PopularityMetrics
+from src.models import PopularityMetrics, TimeToBeat
 from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -77,6 +77,7 @@ class AsyncIGDBClient(BaseAPIClient):
         async with self._limiter:
             await asyncio.sleep(self._delay)
             res = await self._client.post(url, content=query, headers=headers)
+
             if res.status_code == httpx.codes.UNAUTHORIZED:
                 # token expired, refresh once
                 self._access_token = None
@@ -91,6 +92,28 @@ class AsyncIGDBClient(BaseAPIClient):
 
             res.raise_for_status()
             return res.json()
+
+    async def fetch_time_to_beat(self, igdb_id: int) -> Optional[TimeToBeat]:
+        """
+        Fetch game time-to-beat info from IGDB.
+        :param igdb_id: IGDB game ID
+        :return: a TimeToBeat object with hastily / normally / completely or None
+        """
+        query = f"""
+            fields completely,count,created_at,game_id,hastily,normally,updated_at;
+            where game_id = {igdb_id};
+            limit 1;
+        """
+        try:
+            data = await self._igdb_post("game_time_to_beats", query)
+            if not data:
+                return None
+
+            ttb = data[0]
+            return TimeToBeat(**ttb)
+        except Exception as e:
+            self._log.error("igdb_time_to_beat_fetch_failed", error=str(e))
+            return None
 
     async def fetch_game_meta(
         self, *, name: Optional[str] = None, igdb_id: Optional[int] = None, steam_appid: Optional[int] = None
@@ -111,6 +134,9 @@ class AsyncIGDBClient(BaseAPIClient):
 
         # Popularity metrics from separate endpoints (if needed). For now basic metrics
         metrics = await self.fetch_popularity_metrics(game.get('id'))
+        # Time to beat from separate endpoint
+        ttb = await self.fetch_time_to_beat(game.get('id'))
+
         meta = IGDBMetaSchema(
             igdb_id=game["id"],
             name=game.get("name", ""),
@@ -128,6 +154,7 @@ class AsyncIGDBClient(BaseAPIClient):
             artworks=[a.get("url") for a in (game.get("artworks") or []) if a and a.get("url")],
             game_engines=[e.get("name") for e in (game.get("game_engines") or []) if e and e.get("name")],
             metrics=metrics,
+            time_to_beat=ttb,
         )
 
         return meta
