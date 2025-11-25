@@ -135,6 +135,8 @@ class RankEngineService(BaseService):
                 )
                 game.ext_info.news_stats = self._news_stat_calculator.compute_news_stats(game.last_news)
                 score = await self._ranker.evaluate(game, meta, snaps)
+                if score < C.RANK_ENGINE_SERVICE_MIN_GAME_SCORE_TO_KEEP:
+                    continue
                 ranked_game = RankedGameSchema(
                     **game.model_dump(exclude={'created_at', 'updated_at'}),
                     last_score=score,
@@ -549,3 +551,11 @@ class RankEngineService(BaseService):
                 cycle_log.error("filter_discounts", exc_info=True, error=e)
 
         return unpublished
+
+    async def delete_ranked_games(
+        self, min_score: int | None = C.RANK_ENGINE_SERVICE_MIN_GAME_SCORE_TO_KEEP
+    ) -> None:
+        """The method deletes ranked games from database
+        :param min_score: The minimum score of the entities to keep existing.
+        """
+        await self._ranked_games_repo.delete({'last_score': {'$lt': min_score}}, many=True, delete_permanently=True)

@@ -6,7 +6,7 @@ from src.config import constants as C
 from src.clients.igdb_client import AsyncIGDBClient
 from src.clients.steam_client import AsyncSteamClient
 from src.db.repositories import GameRepository, GameSnapshotRepository, AppRepository, IGDBRepository, \
-    RedditPostRepository, LeaderboardRepository
+    RedditPostRepository, LeaderboardRepository, RankedGameRepository
 from src.models.game import GameModel
 from src.schemas import GameSnapshotSchema, GameSchema, RedditPostSchema, GameLeaderboardSchema
 from src.schemas.igdb_schemas import IGDBMetaSchema
@@ -30,6 +30,7 @@ class APIHarvesterService(BaseService):
         igdb_repo: IGDBRepository,
         speedrun_client: SpeedrunClient,
         leaderboard_repo: LeaderboardRepository,
+        ranked_games_repo: RankedGameRepository,
     ) -> None:
         """The constructor method for APIHarvesterService class.
         :param steam_client: an instance of AsyncSteamClient class
@@ -42,6 +43,7 @@ class APIHarvesterService(BaseService):
         :param igdb_repo: an instance of IGDBRepository class
         :param speedrun_client: an instance of SpeedrunClient class
         :param leaderboard_repo: an instance of LeaderboardRepository class
+        :param ranked_games_repo: an instance of RankedGameRepository class
         """
         self._steam = steam_client
         self._igdb_client = igdb_client
@@ -55,6 +57,7 @@ class APIHarvesterService(BaseService):
         self._reddit_adapter = RedditAdapter(reddit_client)
         self._speedrun_adapter = SpeedrunAdapter(speedrun_client)
         self._leaderboard_repo = leaderboard_repo
+        self._ranked_games_repo = ranked_games_repo
 
     async def fetch_cycle(self, until: datetime) -> None:
         """
@@ -236,3 +239,27 @@ class APIHarvesterService(BaseService):
         except Exception as e:
             cycle_log.error("fetch_game_dev_reddit_posts", exc_info=True, error=e)
             return []
+
+    async def delete_stage_data(
+        self, until: datetime | None = None, game_snapshot_score_lt: int | None = C.HARVESTER_SNAPSHOT_MIN_GAME_SCORE,
+        min_ranked_games_count: int = C.HARVESTER_MIN_RANKED_GAMES_COUNT_TO_DELETE_SNAPSHOTS
+    ) -> None:
+        """The method serves to delete stage data such as games, reddit posts and game snapshots depending on provided
+        params
+        :param until: datetime to delete data until
+        :param game_snapshot_score_lt: minimum score to delete game snapshots
+        :param min_ranked_games_count: minimum number of ranked games to delete snapshots
+        """
+        cycle_log = self._log.bind(method="delete_stage_data")
+        cycle_log.info("start deleting stage data")
+        until = until or datetime.now()
+        await self._games.delete({'updated_at': {'$lt': until}}, many=True, delete_permanently=True)
+        await self._reddit_posts.delete({'updated_at': {'$lt': until}}, many=True, delete_permanently=True)
+        ranked_games = await self._ranked_games_repo.get_all({'last_score': {'$gte': game_snapshot_score_lt}})
+        if len(ranked_games) >= min_ranked_games_count:
+            game_ids = [game.steam_appid for game in ranked_games]
+            await self._game_snapshot_repo.delete(
+                {'steam_appid': {'$nin': game_ids}}, many=True, delete_permanently=True
+            )
+
+        cycle_log.info("Stage data deleted successfully")

@@ -67,11 +67,14 @@ class Orchestrator:
         cycle_log.info("cycle_start")
 
         while True:
+            now = datetime.now()
             try:
                 await self._rank_engine.rank_all()
             except Exception as e:
                 cycle_log.error("ranker_cycle_error", exc_info=True, error=e)
 
+            await self._api_harvester.delete_stage_data(now)
+            # await self._rank_engine.delete_ranked_games()
             await asyncio.sleep(C.ORCH_RANKING_INTERVAL)
 
     async def _allocate_posts(self, top_n: int) -> list[AllocatedPostsSchema]:

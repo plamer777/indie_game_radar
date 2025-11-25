@@ -58,6 +58,7 @@ api_harvester = APIHarvesterService(
     reddit_post_repo=reddit_post_repo,
     speedrun_client=speedrun_client,
     leaderboard_repo=leaderboard_repo,
+    ranked_games_repo=ranked_games_repo,
 )
 
 rank_engine = RankEngineService(

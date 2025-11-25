@@ -342,12 +342,6 @@ class BaseRepository(AbstractRepository, Generic[M]):
         permanently without the soft delete feature
         """
         try:
-            found = await self.get_by_id(uid) if type(uid) is str else await self.get_one(uid)
-            if not found:
-                raise ValueError(f'Record {uid} Not found')
-            elif found.get('deleted_at') if type(found) is dict else found.deleted_at:
-                raise ValueError('Record already deleted')
-
             update_method = self._collection.update_one if not many else self._collection.update_many
             delete_method = self._collection.delete_one if not many else self._collection.delete_many
             if type(uid) is str:

@@ -210,6 +210,13 @@ ORCH_RANKING_INTERVAL = SECONDS_IN_MINUTE * 10
 SCHED_MIN_SLEEP_SECONDS = 1
 SCHED_FIXED_HOURS_DEFAULT = [8, 12, 16, 20, 23]
 # ---------------------------------------------------------------------------------------------------------------------
+# Harvested settings
+HARVESTER_SNAPSHOT_MIN_GAME_SCORE = 0.2
+HARVESTER_MIN_RANKED_GAMES_COUNT_TO_DELETE_SNAPSHOTS = 300
+# ---------------------------------------------------------------------------------------------------------------------
+# Rank engine service settings
+RANK_ENGINE_SERVICE_MIN_GAME_SCORE_TO_KEEP = 0.2
+# ---------------------------------------------------------------------------------------------------------------------
 # Ranker normalization and buckets
 GAME_RANKER_RECENCY_DELTA_DAYS = 180
 UNKNOWN_RECENCY_BASE = 0.2
@@ -283,10 +290,6 @@ RECENCY_BOOST_DECAY_DAYS = 180
 
 # --- Порог насыщенности контента ---
 MAX_CONTENT_LENGTH = 1500
-
-# ----------------------------------------------------------------------
-# NEWS RANKER CONFIG
-# ----------------------------------------------------------------------
 
 # --- Общие лимиты ---
 MIN_NEWS_CONTENT_LENGTH = 300
