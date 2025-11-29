@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  app:
+    image: plamer88/indie-game-radar:latest
+    container_name: indie_game_app
+    restart: unless-stopped
+    # Если хотите, чтобы контейнер видел локальную БД на localhost без дополнительных настроек,
+    # можно раскомментировать network_mode: host (работает на Linux).
+    network_mode: "host"
+    ports:
+      - "8000:8000"  # проброс порта на хост
+
+    env_file:
+      - .env
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

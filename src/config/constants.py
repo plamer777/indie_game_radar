@@ -5,7 +5,10 @@ import re
 # Base client settings
 BASE_CLIENT_MIN_INCREASE_DIFF_SEC = 10
 BASE_CLIENT_INCREASE_STEP = 0.1
-
+HTTP_TIMEOUT_SECONDS = 15.0
+HTTP_MAX_RETRIES = 3
+HTTP_RETRY_BACKOFF_BASE = 0.5
+HTTP_RETRY_BACKOFF_MAX = 5.0
 # ---------------------------------------------------------------------------------------------------------------------
 # Filtering thresholds and heuristics
 FILTER_NAME_BLACKLIST_TOKENS = [
@@ -47,6 +50,8 @@ ASC = 1
 DESC = -1
 # ---------------------------------------------------------------------------------------------------------------------
 # Repository defaults
+MONGO_DB = "indie_game_radar"
+
 UNPUBLISHED_QUERY_LIMIT_DEFAULT = 100
 LOOKUP_LIMIT_ONE = 1
 GAMES_COLLECTION = "games"
@@ -78,10 +83,21 @@ SCORE_DECIMALS = 2
 TOP_GAMES_TO_PUBLISH = 1
 TOP_NEWS_TO_PUBLISH = 1
 # ---------------------------------------------------------------------------------------------------------------------
+# Redis settings
+REDIS_URL = "redis://localhost:6379/0"
+
+# ---------------------------------------------------------------------------------------------------------------------
 # IGDB queries
 IGDB_SEARCH_LIMIT = 1
+IGDB_MAX_CONCURRENCY = 3
+IGDB_BASE_URL = "https://api.igdb.com/v4"
+TWITCH_OAUTH_URL = "https://id.twitch.tv/oauth2/token"
 # ---------------------------------------------------------------------------------------------------------------------
 # Steam
+STEAM_STORE_BASE = "https://store.steampowered.com"
+STEAM_WEBAPI_BASE = "https://api.steampowered.com"
+STEAM_MAX_CONCURRENCY = 5
+
 STEAM_PRICE_DIVISOR = 100.0
 REVIEW_DAY_RANGE = 30
 NEWS_COUNT = 20

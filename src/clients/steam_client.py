@@ -22,12 +22,12 @@ from src.config import constants as C
 class AsyncSteamClient(BaseAPIClient):
     def __init__(
         self, cache: RedisCache, api_key: str = settings.STEAM_API_KEY,
-        web_api_base_url: str = settings.STEAM_WEBAPI_BASE,
-        store_base_url: str = settings.STEAM_STORE_BASE
+        web_api_base_url: str = C.STEAM_WEBAPI_BASE,
+        store_base_url: str = C.STEAM_STORE_BASE
     ) -> None:
         super().__init__()
-        self._client = httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS)
-        self._limiter = SemaphoreLimiter(settings.STEAM_MAX_CONCURRENCY)
+        self._client = httpx.AsyncClient(timeout=C.HTTP_TIMEOUT_SECONDS)
+        self._limiter = SemaphoreLimiter(C.STEAM_MAX_CONCURRENCY)
         self._cache = cache
         self._log = get_logger().bind(client="steam")
         self._api_key = api_key

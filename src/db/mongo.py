@@ -5,7 +5,7 @@ from src.config.settings import settings
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_database(uri: str = settings.MONGO_URI, db_name: str = settings.MONGO_DB) -> AsyncIOMotorDatabase:
+def get_database(uri: str = settings.MONGO_URI, db_name: str = C.MONGO_DB) -> AsyncIOMotorDatabase:
     client = AsyncIOMotorClient(uri, uuidRepresentation="standard")
     return getattr(client, db_name)
 

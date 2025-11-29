@@ -253,13 +253,18 @@ class APIHarvesterService(BaseService):
         cycle_log = self._log.bind(method="delete_stage_data")
         cycle_log.info("start deleting stage data")
         until = until or datetime.now()
-        await self._games.delete({'updated_at': {'$lt': until}}, many=True, delete_permanently=True)
-        await self._reddit_posts.delete({'updated_at': {'$lt': until}}, many=True, delete_permanently=True)
-        ranked_games = await self._ranked_games_repo.get_all({'last_score': {'$gte': game_snapshot_score_lt}})
-        if len(ranked_games) >= min_ranked_games_count:
-            game_ids = [game.steam_appid for game in ranked_games]
-            await self._game_snapshot_repo.delete(
-                {'steam_appid': {'$nin': game_ids}}, many=True, delete_permanently=True
-            )
+        try:
+            await self._games.delete({'updated_at': {'$lt': until}}, many=True, delete_permanently=True)
+            await self._reddit_posts.delete({'updated_at': {'$lt': until}}, many=True, delete_permanently=True)
+            ranked_games = await self._ranked_games_repo.get_all({'last_score': {'$gte': game_snapshot_score_lt}})
+            if len(ranked_games) >= min_ranked_games_count:
+                game_ids = [game.steam_appid for game in ranked_games]
+                await self._game_snapshot_repo.delete(
+                    {'steam_appid': {'$nin': game_ids}}, many=True, delete_permanently=True
+                )
 
-        cycle_log.info("Stage data deleted successfully")
+            cycle_log.info("Stage data deleted successfully")
+
+        except Exception as e:
+            cycle_log.error("delete_stage_data", exc_info=True, error=e)
+

@@ -3,12 +3,12 @@ import json
 from typing import Optional, Any
 import asyncio
 from redis.asyncio import from_url
-from src.config.settings import settings
+from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class RedisCache:
-    def __init__(self, redis_url: str = settings.REDIS_URL) -> None:
+    def __init__(self, redis_url: str = C.REDIS_URL) -> None:
         self._redis = from_url(redis_url, decode_responses=True)
         self._lock = asyncio.Lock()
 

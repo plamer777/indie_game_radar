@@ -5,16 +5,17 @@ from src.utils.retry import RetryPolicy
 from src.utils.logging import get_logger
 from src.config.settings import settings
 from typing import Optional, Union
+from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class TelegramPublisher:
     def __init__(self):
-        self._client = httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS)
+        self._client = httpx.AsyncClient(timeout=C.HTTP_TIMEOUT_SECONDS)
         self._retry = RetryPolicy(
-            retries=settings.HTTP_MAX_RETRIES,
-            base_delay=settings.HTTP_RETRY_BACKOFF_BASE,
-            max_delay=settings.HTTP_RETRY_BACKOFF_MAX,
+            retries=C.HTTP_MAX_RETRIES,
+            base_delay=C.HTTP_RETRY_BACKOFF_BASE,
+            max_delay=C.HTTP_RETRY_BACKOFF_MAX,
             retry_exceptions=(httpx.HTTPError,),
         )
         self._token = settings.TELEGRAM_BOT_TOKEN

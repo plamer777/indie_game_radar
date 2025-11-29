@@ -20,12 +20,12 @@ class AsyncIGDBClient(BaseAPIClient):
     def __init__(
         self, cache: RedisCache, client_id: str = settings.IGDB_CLIENT_ID,
         client_secret: str = settings.IGDB_CLIENT_SECRET,
-        base_url: str = settings.IGDB_BASE_URL,
-        oauth_url: str = settings.TWITCH_OAUTH_URL,
+        base_url: str = C.IGDB_BASE_URL,
+        oauth_url: str = C.TWITCH_OAUTH_URL,
     ) -> None:
         super().__init__()
-        self._client = httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS)
-        self._limiter = SemaphoreLimiter(settings.IGDB_MAX_CONCURRENCY)
+        self._client = httpx.AsyncClient(timeout=C.HTTP_TIMEOUT_SECONDS)
+        self._limiter = SemaphoreLimiter(C.IGDB_MAX_CONCURRENCY)
         self._cache = cache
         self._log = get_logger().bind(client="igdb")
         self._access_token: Optional[str] = None
@@ -43,7 +43,7 @@ class AsyncIGDBClient(BaseAPIClient):
             return self._access_token
         await asyncio.sleep(self._delay)
         resp = await self._client.post(
-            settings.TWITCH_OAUTH_URL,
+            self._oauth_url,
             data={
                 "client_id": self._client_id,
                 "client_secret": self._client_secret,
@@ -71,7 +71,7 @@ class AsyncIGDBClient(BaseAPIClient):
 
     @repeat_execution_async(attempts=5, excepts=(TooManyRequestsException,), delay=TOO_MANY_REQUESTS_DELAY)
     async def _igdb_post(self, endpoint: str, query: str) -> list[dict[str, Any]] | None:
-        url = f"{settings.IGDB_BASE_URL}/{endpoint}"
+        url = f"{self._base_url}/{endpoint}"
         headers = await self._get_headers()
 
         async with self._limiter:

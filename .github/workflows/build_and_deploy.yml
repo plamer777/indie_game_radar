@@ -1,0 +1,70 @@
+name: CI/CD Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build image
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/indie-game-radar:latest .
+
+      - name: Push image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/indie-game-radar:latest
+
+  deploy:
+    name: Deploy to VPS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    env:
+      # MongoDB
+      MONGO_URI: ${{secrets.MONGO_URI}}
+      IGDB_CLIENT_ID: ${{secrets.IGDB_CLIENT_ID}}
+      IGDB_CLIENT_SECRET: ${{secrets.IGDB_CLIENT_SECRET}}
+      STEAM_API_KEY: ${{secrets.STEAM_API_KEY}}
+      TELEGRAM_BOT_TOKEN: ${{secrets.TELEGRAM_BOT_TOKEN}}
+      TELEGRAM_CHAT_ID: ${{secrets.TELEGRAM_CHAT_ID}}
+      OPEN_AI_KEY: ${{secrets.OPEN_AI_KEY}}
+      REDDIT_CLIENT_ID: ${{secrets.REDDIT_CLIENT_ID}}
+      REDDIT_CLIENT_SECRET: ${{secrets.REDDIT_CLIENT_SECRET}}
+      REDDIT_USER_AGENT: ${{secrets.REDDIT_USER_AGENT}}
+
+    steps:
+      - name: clone repo
+        uses: actions/checkout@v4
+      - name: prepare files
+        run: |
+          cat .env-ci | envsubst > .env          
+
+      - name: copy files to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{secrets.HOST}}
+          username: ${{secrets.USERNAME}}
+          password: ${{secrets.PASSWORD}}
+          source: 'docker-compose.yml,.env'
+          target: '/home/indie_game_radar'
+      - name: run application
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{secrets.HOST}}
+          username: ${{secrets.USERNAME}}
+          password: ${{secrets.PASSWORD}}
+          script: |
+            cd /home/indie_game_radar
+            echo ${{secrets.PASSWORD}} | sudo -S docker compose down            
+            echo ${{secrets.PASSWORD}} | sudo -S docker compose up -d --build
+            echo ${{secrets.PASSWORD}} | sudo -S docker system prune -a -f  
