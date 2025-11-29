@@ -108,8 +108,7 @@ class APIHarvesterService(BaseService):
                     continue
 
                 changed = await self._games.add_or_update(game, search_field="steam_appid")
-                await self.fetch_reddit_posts_by_game(game)
-                await self.fetch_game_leaderboard(game)
+                await asyncio.gather(*[self.fetch_game_leaderboard(game), self.fetch_reddit_posts_by_game(game)])
 
                 if changed:
                     total_achievements = len(game.ext_info.achievements or [])
@@ -168,7 +167,7 @@ class APIHarvesterService(BaseService):
         """
         try:
             leaderboard = await self._speedrun_adapter.fetch_leaderboard(game_name=game.name)
-            if leaderboard:
+            if leaderboard and game.release_date:
                 if abs((leaderboard.release_date - game.release_date).days) > C.SPEEDRUN_GAME_RELEASE_MAX_DELTA_DAYS:
                     return None
                 leaderboard.steam_appid = game.steam_appid

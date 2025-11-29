@@ -48,4 +48,5 @@ class GameLeaderboard(BaseDBModel):
     steam_appid: int | None = None
     weblink: str
     discord: str | None = None
+    release_date: datetime
     category_leaderboards: list[CategoryLeader] = []
