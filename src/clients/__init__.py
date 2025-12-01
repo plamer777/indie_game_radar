@@ -4,6 +4,7 @@ from .igdb_client import AsyncIGDBClient
 from .telegram_client import TelegramPublisher
 from .reddit_client import RedditClient
 from .speedrun_client import SpeedrunClient
+from .telephone_publisher import TelethonPublisher
 # ---------------------------------------------------------------------------------------------------------------------
 
 __all__ = [
@@ -12,6 +13,7 @@ __all__ = [
     "AsyncIGDBClient",
     "TelegramPublisher",
     "RedditClient",
-    "SpeedrunClient"
+    "SpeedrunClient",
+    "TelethonPublisher"
 ]
 

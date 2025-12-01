@@ -82,6 +82,7 @@ WEBSITE_SEPARATOR = " | "
 SCORE_DECIMALS = 2
 TOP_GAMES_TO_PUBLISH = 1
 TOP_NEWS_TO_PUBLISH = 1
+TELETHON_SESSION = 'forwarder_prod_session'
 # ---------------------------------------------------------------------------------------------------------------------
 # Redis settings
 REDIS_URL = "redis://localhost:6379/0"

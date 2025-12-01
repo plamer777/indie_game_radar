@@ -65,6 +65,7 @@ jobs:
           password: ${{secrets.PASSWORD}}
           script: |
             cd /home/indie_game_radar
+            echo ${{secrets.PASSWORD}} | sudo -S docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
             echo ${{secrets.PASSWORD}} | sudo -S docker compose down            
             echo ${{secrets.PASSWORD}} | sudo -S docker compose up -d --build
             echo ${{secrets.PASSWORD}} | sudo -S docker system prune -a -f  

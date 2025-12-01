@@ -79,8 +79,6 @@ GAME_POST_TEMPLATES = [
 
 <b>Genres:</b> {{ genres }}
 
-<b>Platforms:</b> {{ platforms }}
-
 <b>Release date:</b> {{ release_date }}
 
 <b>Recommendations:</b> {{ recommendations }}

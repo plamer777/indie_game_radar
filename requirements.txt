@@ -8,8 +8,8 @@ jinja2==3.1.6
 lxml==6.0.2
 markdown==3.10
 motor==3.6.0
-numpy==2.3.4
 openai==2.6.0
+phonemizer==3.3.0
 pip-chill==1.0.3
 platformdirs==4.2.2
 praw==7.8.1
@@ -18,5 +18,7 @@ pytest-asyncio==0.24.0
 python-steam-api==2.2.1
 redis==5.0.8
 structlog==24.4.0
+telethon==1.42.0
 tomli==2.0.1
+transformers==4.57.3
 yt-dlp==2025.11.12

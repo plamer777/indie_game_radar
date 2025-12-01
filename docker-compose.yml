@@ -5,14 +5,18 @@ services:
     image: plamer88/indie-game-radar:latest
     container_name: indie_game_app
     restart: unless-stopped
-    # Если хотите, чтобы контейнер видел локальную БД на localhost без дополнительных настроек,
-    # можно раскомментировать network_mode: host (работает на Linux).
+
     network_mode: "host"
+
     ports:
-      - "8000:8000"  # проброс порта на хост
+      - "8000:8000"
 
     env_file:
       - .env
+
+    # Монтируем директорию с Telethon session-файлом
+    volumes:
+      - /home/indie_game_radar/tg_sessions/forwarder_prod_session.session:/app/forwarder_prod_session.session
 
     logging:
       driver: "json-file"

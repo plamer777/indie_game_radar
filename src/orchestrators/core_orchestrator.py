@@ -123,6 +123,7 @@ class Orchestrator:
     async def _run_cycle(self, top_n: Optional[int] = None) -> None:
         """Runs the full ranking and publishing cycle once per day."""
         top_n = top_n or C.DEFAULT_DAILY_POSTS
+        await self._publisher.start_forwarder()
         while True:
             now = datetime.now(UTC)
             if C.ALLOCATION_START_HOUR <= now.hour < C.ALLOCATION_END_HOUR:

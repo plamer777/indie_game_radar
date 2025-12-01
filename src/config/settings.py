@@ -32,5 +32,10 @@ class Settings(BaseSettings):
     REDDIT_CLIENT_SECRET: str = Field(...)
     REDDIT_USER_AGENT: str = Field(...)
 
+    TELETHON_API_ID: int = Field(...)
+    TELETHON_API_HASH: str = Field(...)
+    SOURCE_CHANNEL_USERNAME: str = Field(...)
+    TARGET_BOT_USERNAME: str = Field(...)
+
 
 settings = Settings()  # evaluated at import time intentionally

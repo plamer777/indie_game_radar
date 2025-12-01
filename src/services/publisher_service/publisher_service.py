@@ -10,6 +10,7 @@ from src.models.publication import PublishStatus, ReviewSummary
 from src.schemas import AllocatedPostsSchema
 from src.services.base_service import BaseService
 from src.services.publisher_service.editors import EditorialRefiner
+from src.services.publisher_service.message_forwarders import TelegramAutoForwarder
 from src.services.publisher_service.renderers.tg_post_renderer import PostRenderer
 from src.utils.common import clean_text
 from src.utils.logging import get_logger
@@ -38,6 +39,7 @@ class PublisherService(BaseService):
         self._log = get_logger().bind(service="PublisherService")
         self._renderer = PostRenderer()
         self._editor = EditorialRefiner(open_ai_client)
+        self._forwarder = TelegramAutoForwarder()
         self._repo_mapper = {
             "games": self._game_publication_repo,
             "discounts": self._discount_publication_repo,
@@ -47,6 +49,13 @@ class PublisherService(BaseService):
             "reviews": self._review_publication_repo,
             "game_leaderboards": self._leaderboard_publication_repo,
         }
+
+    async def start_forwarder(self) -> None:
+        """Запускает авто-пересылку сообщений"""
+        try:
+            await self._forwarder.start()
+        except Exception as e:
+            self._log.error("forwarder_start_failed", error=str(e))
 
     async def count_published_for_today(self) -> int:
         """Подсчитывает количество опубликованных постов за сегодня"""
