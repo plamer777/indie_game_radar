@@ -40,8 +40,6 @@ class DirectRedditClient:
             timeout=C.DIRECT_REDDIT_CLIENT_TIMEOUT,
             proxy=proxies
         )
-        # small lock to avoid overlapping requests if caller is aggressive
-        self._lock = asyncio.Lock()
 
     def _build_headers(self) -> dict:
         h = dict(C.DIRECT_REDDIT_CLIENT_DEFAULT_HEADERS)
@@ -85,13 +83,12 @@ class DirectRedditClient:
         for attempt in range(1, C.DIRECT_REDDIT_CLIENT_MAX_RETRIES + 1):
             try:
                 # small lock to serialize requests if needed
-                async with self._lock:
-                    headers = self._build_headers()
-                    resp = await self._client.get(url, params=params, headers=headers)
+                headers = self._build_headers()
+                resp = await self._client.get(url, params=params, headers=headers)
                 # polite jitter after request
                 await self._sleep_jitter()
 
-                if resp.status_code == 200:
+                if resp.status_code in (200, 201, 302):
                     self._set_cache_data(key, resp.json())
                     return resp.json()
                 # handle 429/403/500 gracefully with backoff
