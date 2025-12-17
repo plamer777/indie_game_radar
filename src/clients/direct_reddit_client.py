@@ -155,7 +155,6 @@ class DirectRedditClient:
         """
         per_request = 100  # maximum Reddit page size
         returned = 0
-        after = None
         max_age_ts = None
         if max_age_days is not None:
             max_age_ts = time.time() - max_age_days * SECONDS_IN_DAY
@@ -165,10 +164,12 @@ class DirectRedditClient:
         if query:
             query_slug = self._slugify(query)
 
-        while returned < limit:
-            for subreddit in subreddit_list:
+        for subreddit in subreddit_list:
+            pages = 0
+            after = None
+            while returned < limit and pages < 5:
 
-                params = {"limit": min(per_request, limit - returned)}
+                params = {"limit": per_request}
                 if sort:
                     params["sort"] = sort
                 if after:
@@ -185,9 +186,6 @@ class DirectRedditClient:
 
                 # update cursor
                 after = data["data"].get("after")
-                if not after:
-                    # no more pages
-                    pass
 
                 for child in children:
                     d = child.get("data", {})
@@ -216,6 +214,8 @@ class DirectRedditClient:
                 # if no cursor, break
                 if not after:
                     break
+
+                pages += 1
                     
     def _convert_item(self, d: dict) -> Submission:
         """The method converts a raw Reddit submission dictionary to a Submission object.
