@@ -41,6 +41,10 @@ jobs:
       REDDIT_CLIENT_ID: ${{secrets.REDDIT_CLIENT_ID}}
       REDDIT_CLIENT_SECRET: ${{secrets.REDDIT_CLIENT_SECRET}}
       REDDIT_USER_AGENT: ${{secrets.REDDIT_USER_AGENT}}
+      SOURCE_CHANNEL_USERNAME: ${{secrets.SOURCE_CHANNEL_USERNAME}}
+      TARGET_BOT_USERNAME: ${{secrets.TARGET_BOT_USERNAME}}
+      TELETHON_API_ID: ${{secrets.TELETHON_API_ID}}
+      TELETHON_API_HASH: ${{secrets.TELETHON_API_HASH}}
 
     steps:
       - name: clone repo
@@ -67,5 +71,6 @@ jobs:
             cd /home/indie_game_radar
             echo ${{secrets.PASSWORD}} | sudo -S docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
             echo ${{secrets.PASSWORD}} | sudo -S docker compose down            
-            echo ${{secrets.PASSWORD}} | sudo -S docker compose up -d --build
-            echo ${{secrets.PASSWORD}} | sudo -S docker system prune -a -f  
+            echo ${{secrets.PASSWORD}} | sudo -S docker compose pull            
+            echo ${{secrets.PASSWORD}} | sudo -S docker compose up -d
+            echo ${{secrets.PASSWORD}} | sudo -S docker system prune -f  
