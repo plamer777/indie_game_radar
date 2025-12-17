@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal, Optional
 from asyncpraw.models import Submission
-from src.clients import RedditClient
+from src.clients import DirectRedditClient
 from src.schemas import RedditPostSchema
 from src.utils.logging import get_logger
 from src.config import constants as C
@@ -9,7 +9,10 @@ from src.config import constants as C
 
 
 class RedditAdapter:
-    def __init__(self, client: RedditClient):
+    def __init__(self, client: DirectRedditClient) -> None:
+        """The constructor method for RedditAdapter class.
+        :param client: an instance of DirectRedditClient class to retrieve posts from Reddit
+        """
         self._client = client
         self._log = get_logger().bind(adapter="RedditAdapter")
 
@@ -103,7 +106,7 @@ class RedditAdapter:
         internal_limit = limit * oversample_factor
 
         async for submission in self._client.find_submissions(
-                "flair:Meme", sort="hot", limit=internal_limit, subreddit_list=subreddit_list
+            sort="hot", limit=internal_limit, subreddit_list=subreddit_list
         ):
             # фильтруем только изображения
             if not submission.url or not submission.url.lower().endswith((".jpg", ".jpeg", ".png", ".gif")):
@@ -114,36 +117,15 @@ class RedditAdapter:
             except Exception as e:
                 log.warning(f"Ошибка при маппинге поста: {e}")
                 continue
+            if post_model not in posts:
+                posts.append(post_model)
 
-            posts.append(post_model)
             fetched += 1
 
             if fetched >= target:
                 break  # достигли нужного количества отфильтрованных постов
-
+        self._client.clean_cache()
         return posts
-
-    async def search_posts_for_game(
-        self,
-        steam_appid: int,
-        subreddit_list: Optional[list[str]] = C.GAMEDEV_SUBREDDITS,
-        limit: int = C.DEFAULT_GAME_RELATED_POSTS_LIMIT
-    ) -> list[RedditPostSchema]:
-        """
-        Ищет посты, связанные с игрой: по названию и/или по Steam AppID.
-        Можно ограничить списком сабреддитов.
-        """
-        log = self._log.bind(appid=steam_appid)
-        log.info("search_posts_for_game")
-        results: list[RedditPostSchema] = []
-        query = f'"store.steampowered.com/app/{steam_appid}"'
-        async for submission in self._client.find_submissions(query, subreddit_list, limit=limit):
-            try:
-                post_model = await self._map_submission(submission, steam_appid)
-                results.append(post_model)
-            except Exception as e:
-                log.warning(f"Failed to map submission {submission.id}: {e}")
-        return results
 
     async def fetch_meta_indie_posts(
         self,
@@ -151,21 +133,27 @@ class RedditAdapter:
         limit: int = C.DEFAULT_GAME_DEV_STORY_POSTS_LIMIT,
         subreddit_list: Optional[list[str]] = C.GAMEDEV_SUBREDDITS,
     ) -> list[RedditPostSchema]:
+        """The method serves to retrieve game dev related posts from Reddit by provided queries and subreddits
+        :param queries: a list of strings representing the search strings to find in title, text and another parts of
+        Reddit post
+        """
         log = self._log.bind(queries=queries)
         log.info("fetch_meta_indie_posts")
         posts = []
         for q in queries:
             try:
                 async for submission in self._client.find_submissions(
-                    q, sort="hot", limit=limit // len(queries), subreddit_list=subreddit_list
+                    query=q, sort="hot", limit=limit // len(queries), subreddit_list=subreddit_list
                 ):
                     post_model = await self._map_submission(submission, post_type="game_dev_story")
-                    posts.append(post_model)
+                    if post_model not in posts:
+                        posts.append(post_model)
             except Exception as e:
                 log.error(f"⚠️ Query '{q}' failed: {e}")
 
         # убираем дубликаты по id
         unique_posts = {p.id: p for p in posts}.values()
+        self._client.clean_cache()
         return list(unique_posts)
 
     async def _map_submission(

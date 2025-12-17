@@ -142,8 +142,8 @@ class RankEngineService(BaseService):
                     last_score=score,
                     last_ranked_at=datetime.now()
                 )
+
                 self._rank_game_news(ranked_game, cycle_log)
-                await self._rank_reddit_posts(ranked_game, cycle_log)
                 await self._ranked_games_repo.add_or_update(ranked_game, search_field="steam_appid")
 
             except Exception as e:

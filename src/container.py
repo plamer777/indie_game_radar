@@ -1,5 +1,5 @@
 from openai import AsyncOpenAI
-from src.clients import RedditClient, SpeedrunClient
+from src.clients import SpeedrunClient, DirectRedditClient
 from src.clients.igdb_client import AsyncIGDBClient
 from src.clients.steam_client import AsyncSteamClient
 from src.clients.telegram_client import TelegramPublisher
@@ -41,7 +41,7 @@ leaderboard_publication_repo = GameLeaderboardPublicationRepository()
 # Clients/helpers
 steam = AsyncSteamClient(cache)
 igdb = AsyncIGDBClient(cache)
-reddit = RedditClient()
+reddit = DirectRedditClient()
 speedrun_client = SpeedrunClient()
 tg = TelegramPublisher()
 editorial_refiner = EditorialRefiner(client)

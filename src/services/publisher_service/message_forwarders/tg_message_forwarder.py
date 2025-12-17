@@ -1,10 +1,9 @@
 from __future__ import annotations
-from telethon import TelegramClient, events
+from telethon import events
+from telethon.tl.custom import Message
 from src.clients import TelethonPublisher
 from src.config.settings import settings
-from src.utils.common import execute_in_thread
 from src.utils.logging import get_logger
-from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -30,21 +29,19 @@ class TelegramAutoForwarder:
         self._api_id = settings.TELETHON_API_ID
         self._api_hash = settings.TELETHON_API_HASH
         self._log = get_logger().bind(forwarder='Message_forwarder')
-        self._client = TelegramClient(C.TELETHON_SESSION, self._api_id, self._api_hash)
         self._publisher = TelethonPublisher()
 
-    @execute_in_thread
     async def start(self) -> None:
         """The method serves to start the forwarder to listen for new messages."""
-        await self._publisher.connect()
-        await self._client.start()
+        await self._publisher.start()
+        client = self._publisher.client
 
-        me = await self._client.get_me()
+        me = await client.get_me()
         self._log.info("listener_started", user=me.username)
 
         # Подписываемся на новые сообщения из канала
-        @self._client.on(events.NewMessage(chats=self._source_channel))
-        async def handler(event) -> None:
+        @client.on(events.NewMessage(chats=self._source_channel))
+        async def handler(event: events.NewMessage.Event) -> None:
             """The function serves to handle new messages in the source channel
             :param event: event object containing the message to forward
             """
@@ -61,9 +58,9 @@ class TelegramAutoForwarder:
                 self._log.error("forward_failed", error=str(e))
 
         self._log.info("listener_running")
-        await self._client.run_until_disconnected()
+        await client.run_until_disconnected()
 
-    async def _forward_message(self, msg) -> None:
+    async def _forward_message(self, msg: Message) -> None:
         """
         Унифицированная пересылка сообщения с контентом.
         """

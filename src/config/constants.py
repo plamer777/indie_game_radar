@@ -123,6 +123,28 @@ SPEEDRUN_GAME_RELEASE_MAX_DELTA_DAYS = 14
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Reddit client
+DIRECT_REDDIT_CLIENT_BASE_URL = "https://www.reddit.com"
+DIRECT_REDDIT_CLIENT_MIN_DELAY = 0.4
+DIRECT_REDDIT_CLIENT_MAX_DELAY = 1.9
+DIRECT_REDDIT_CLIENT_TIMEOUT = 15.0
+DIRECT_REDDIT_CLIENT_MAX_RETRIES = 5
+DIRECT_REDDIT_CLIENT_FUZZ_THRESHOLD = 75
+DIRECT_REDDIT_CLIENT_CACHE_CLEANER_INTERVAL = SECONDS_IN_MINUTE * 10
+# Настройки по умолчанию — можешь изменить или прокинуть из settings
+DIRECT_REDDIT_CLIENT_DEFAULT_HEADERS = {
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "Accept-Language": "en-US,en;q=0.9",
+    # User-Agent будет устанавливаться динамически, этот заголовок здесь для fallback
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)",
+}
+
+# Небольшой набор User-Agent'ов — дополни по вкусу
+DIRECT_REDDIT_CLIENT_DEFAULT_UA_POOL = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+]
+
 GAMEDEV_SUBREDDITS = [
     # Общие по разработке
     "gamedev", "indiedev", "gameDevClassifieds", "IndieGaming", "IndieDev",
@@ -141,7 +163,6 @@ GAMEDEV_SUBREDDITS = [
 ]
 
 GAME_MEME_SUBREDDITS = [
-    "gamingmemes",              # общий саб с игровыми мемами
     "gamememes",                # ещё один крупный саб по игровым мемам
     "pcmasterrace",             # мемы, юмор про ПК-геймеров и платформу
     "justgamedevthings",        # мемы/юмор про разработку игр (геймдев) :contentReference[oaicite:0]{index=0}
@@ -175,6 +196,7 @@ GAMEDEV_DISCUSSION_QUERIES = [
     "solo game developer",
     "learning game dev",
     "game dev looks like",
+    "we're running"
 
     # 💡 Опыт, истории, фейлы, инсайты
     "my game dev journey",

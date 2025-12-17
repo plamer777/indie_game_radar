@@ -41,6 +41,13 @@ class TelethonPublisher:
 
         self._is_connected = False
 
+    @property
+    def client(self) -> TelegramClient:
+        """The client property of the TelethonPublisher class.
+        :return: TelegramClient object
+        """
+        return self._client
+
     async def create_tg_session(self) -> None:
         """The create_tg_session method of the TelethonPublisher class to create a new TG session"""
 
@@ -89,6 +96,14 @@ class TelethonPublisher:
                 )
             self._is_connected = True
             self._log.info("telethon_connected")
+
+    async def start(self) -> None:
+        """The start method of the TelethonPublisher class to connect and start the client"""
+        try:
+            await self._client.start()
+            self._log.info("telethon_started")
+        except Exception as e:
+            self._log.error("telethon_start_failed", error=str(e))
 
     async def close(self) -> None:
         """The close method of the TelethonPublisher class to disconnect the client"""

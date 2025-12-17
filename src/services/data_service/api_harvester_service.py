@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime
 from typing import Optional
-from src.clients import RedditClient, SpeedrunClient
+from src.clients import SpeedrunClient, DirectRedditClient
 from src.config import constants as C
 from src.clients.igdb_client import AsyncIGDBClient
 from src.clients.steam_client import AsyncSteamClient
@@ -22,7 +22,7 @@ class APIHarvesterService(BaseService):
         self,
         steam_client: AsyncSteamClient,
         igdb_client: AsyncIGDBClient,
-        reddit_client: RedditClient,
+        reddit_client: DirectRedditClient,
         game_repo: GameRepository,
         reddit_post_repo: RedditPostRepository,
         game_snapshot_repo: GameSnapshotRepository,
@@ -35,7 +35,7 @@ class APIHarvesterService(BaseService):
         """The constructor method for APIHarvesterService class.
         :param steam_client: an instance of AsyncSteamClient class
         :param igdb_client: an instance of AsyncIGDBClient class
-        :param reddit_client: an instance of RedditClient class
+        :param reddit_client: an instance of DirectRedditClient class
         :param game_repo: an instance of GameRepository class
         :param reddit_post_repo: an instance of RedditPostRepository class
         :param game_snapshot_repo: an instance of GameSnapshotRepository class
@@ -76,7 +76,8 @@ class APIHarvesterService(BaseService):
 
         cycle_log.info("cycle_complete")
 
-    async def fetch_steam_apps(self):
+    async def fetch_steam_apps(self) -> None:
+        """The method serves to process apps retrieved from Steam API"""
         last_modified = await self._app_repo.get_max_value("last_modified")
         last_modified = last_modified.get('max_value')
         cycle_log = self._log.bind(method="fetch_steam_apps")
@@ -89,7 +90,12 @@ class APIHarvesterService(BaseService):
             except Exception as e:
                 cycle_log.error("fetch_steam_apps", exc_info=True, error=e)
 
-    async def fetch_steam_games(self, until: datetime | None = None):
+    async def fetch_steam_games(self, until: datetime | None = None) -> None:
+        """The method serves to process games retrieved from Steam API
+
+        Args:
+            until (datetime | None, optional): The end time for the fetch cycle. Defaults to None.
+        """
         until = until or datetime.min
         cycle_log = self._log.bind(method="fetch_steam_games")
         cycle_log.info("start updating games")
@@ -108,7 +114,7 @@ class APIHarvesterService(BaseService):
                     continue
 
                 changed = await self._games.add_or_update(game, search_field="steam_appid")
-                await asyncio.gather(*[self.fetch_game_leaderboard(game), self.fetch_reddit_posts_by_game(game)])
+                await self.fetch_game_leaderboard(game)
 
                 if changed:
                     total_achievements = len(game.ext_info.achievements or [])
@@ -183,23 +189,6 @@ class APIHarvesterService(BaseService):
             # TODO method don't works for now, not any art found for games
             reddit_posts = await self._reddit_adapter.fetch_game_pixel_art(
                 game_names=[game.name]
-            )
-            [setattr(post, 'game_name', game.name) for post in reddit_posts]
-            await self._reddit_posts.add_or_update(reddit_posts, search_field="reddit_id")
-
-            return reddit_posts
-        except Exception as e:
-            self._log.error("fetch_reddit_posts_by_game", exc_info=True, error=e)
-            return []
-
-    async def fetch_reddit_posts_by_game(self, game: GameSchema | GameModel) -> list[RedditPostSchema]:
-        """The method serves to fetch and save reddit posts related to provided game object
-        :param game: an instance of GameSchema or GameModel class
-        :return: a list of RedditPostSchema objects or empty list if no posts were found
-        """
-        try:
-            reddit_posts = await self._reddit_adapter.search_posts_for_game(
-                steam_appid=game.steam_appid
             )
             [setattr(post, 'game_name', game.name) for post in reddit_posts]
             await self._reddit_posts.add_or_update(reddit_posts, search_field="reddit_id")

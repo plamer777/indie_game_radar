@@ -12,7 +12,7 @@ from src.services.base_service import BaseService
 from src.services.publisher_service.editors import EditorialRefiner
 from src.services.publisher_service.message_forwarders import TelegramAutoForwarder
 from src.services.publisher_service.renderers.tg_post_renderer import PostRenderer
-from src.utils.common import clean_text
+from src.utils.common import clean_text, execute_in_thread
 from src.utils.logging import get_logger
 from src.config import constants as C
 # ---------------------------------------------------------------------------------------------------------------------
@@ -50,10 +50,12 @@ class PublisherService(BaseService):
             "game_leaderboards": self._leaderboard_publication_repo,
         }
 
+    @execute_in_thread
     async def start_forwarder(self) -> None:
         """Запускает авто-пересылку сообщений"""
         try:
             await self._forwarder.start()
+            self._log.info("forwarder_started")
         except Exception as e:
             self._log.error("forwarder_start_failed", error=str(e))
 
