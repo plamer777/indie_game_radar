@@ -88,7 +88,7 @@ class DirectRedditClient:
                 # polite jitter after request
                 await self._sleep_jitter()
 
-                if resp.status_code in (200, 201, 302):
+                if resp.status_code in (200, 201):
                     self._set_cache_data(key, resp.json())
                     return resp.json()
                 # handle 429/403/500 gracefully with backoff
@@ -162,57 +162,42 @@ class DirectRedditClient:
             query_slug = self._slugify(query)
 
         for subreddit in subreddit_list:
-            pages = 0
-            after = None
-            while returned < limit and pages < 5:
+            params = {"limit": per_request}
+            if sort:
+                params["sort"] = sort
 
-                params = {"limit": per_request}
-                if sort:
-                    params["sort"] = sort
-                if after:
-                    params["after"] = after
+            path = f"r/{subreddit}/.json"
+            data = await self._get_json(path, params=params)
+            if not data or "data" not in data:
+                break
 
-                path = f"r/{subreddit}/.json"
-                data = await self._get_json(path, params=params)
-                if not data or "data" not in data:
-                    break
+            children = data["data"].get("children", [])
+            if not children:
+                break
 
-                children = data["data"].get("children", [])
-                if not children:
-                    break
+            for child in children:
+                d = child.get("data", {})
+                # skip older posts
+                if max_age_ts and d.get("created_utc", 0) < max_age_ts:
+                    continue
 
-                # update cursor
-                after = data["data"].get("after")
-
-                for child in children:
-                    d = child.get("data", {})
-                    # skip older posts
-                    if max_age_ts and d.get("created_utc", 0) < max_age_ts:
+                # fuzzy/title filtering
+                if query:
+                    title = (d.get("title") or "")
+                    selftext = (d.get("selftext") or "")
+                    score_title = fuzz.partial_ratio(query, title)
+                    score_text = fuzz.partial_ratio(query, selftext)
+                    score_slug = 0
+                    if query_slug and d.get("url"):
+                        score_slug = 100 if query_slug in (d.get("url") or "").lower() else 0
+                    best = max(score_title, score_text, score_slug)
+                    if best < self._fuzz_threshold:
                         continue
-                        
-                    # fuzzy/title filtering
-                    if query:
-                        title = (d.get("title") or "")
-                        selftext = (d.get("selftext") or "")
-                        score_title = fuzz.partial_ratio(query, title)
-                        score_text = fuzz.partial_ratio(query, selftext)
-                        score_slug = 0
-                        if query_slug and d.get("url"):
-                            score_slug = 100 if query_slug in (d.get("url") or "").lower() else 0
-                        best = max(score_title, score_text, score_slug)
-                        if best < self._fuzz_threshold:
-                            continue
-                    # yield result
-                    yield self._convert_item(d)
-                    returned += 1
-                    if returned >= limit:
-                        break
-
-                # if no cursor, break
-                if not after:
+                # yield result
+                yield self._convert_item(d)
+                returned += 1
+                if returned >= limit:
                     break
-
-                pages += 1
                     
     def _convert_item(self, d: dict) -> Submission:
         """The method converts a raw Reddit submission dictionary to a Submission object.

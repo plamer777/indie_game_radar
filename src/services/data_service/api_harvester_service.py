@@ -69,7 +69,7 @@ class APIHarvesterService(BaseService):
         # a) периодически обновляем список app
         await self.fetch_steam_apps()
         # # b) выгружаем свежие посты по ключевым запросам гейм дева и мемы
-        # await self.fetch_game_dev_reddit_posts()
+        await self.fetch_game_dev_reddit_posts()
         await self.fetch_game_meme_reddit_posts()
         # c) выгружаем игры партиями\
         await self.fetch_steam_games(until)
