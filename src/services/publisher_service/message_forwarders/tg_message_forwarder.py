@@ -68,7 +68,8 @@ class TelegramAutoForwarder:
         # Если это медиа — пересылаем через send_file
         if msg.media:
             self._log.info(f'Message type: {type(msg)}')
-            if msg.photo:
+            file = await msg.download_media(bytes)
+            if msg.photo and file:
                 await self._publisher.send_photo(
                     target=self._target,
                     photo=await msg.download_media(bytes),
@@ -76,7 +77,7 @@ class TelegramAutoForwarder:
                 )
                 return
 
-            if msg.video:
+            if msg.video and file:
                 await self._publisher.send_video(
                     target=self._target,
                     video=await msg.download_media(bytes),
@@ -85,12 +86,14 @@ class TelegramAutoForwarder:
                 return
 
             # другие файлы
-            await self._publisher._client.send_file(
-                self._target,
-                file=await msg.download_media(bytes),
-                caption=msg.message or "",
-            )
-            return
+
+            if file:
+                await self._publisher._client.send_file(
+                    self._target,
+                    file=await msg.download_media(bytes),
+                    caption=msg.message or "",
+                )
+                return
 
         # Если это только текст
         await self._publisher.send_message(

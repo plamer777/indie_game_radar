@@ -71,7 +71,7 @@ class APIHarvesterService(BaseService):
         # # b) выгружаем свежие посты по ключевым запросам гейм дева и мемы
         await self.fetch_game_dev_reddit_posts()
         await self.fetch_game_meme_reddit_posts()
-        # c) выгружаем игры партиями\
+        # c) выгружаем игры партиями
         await self.fetch_steam_games(until)
 
         cycle_log.info("cycle_complete")

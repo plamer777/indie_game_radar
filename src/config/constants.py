@@ -27,7 +27,7 @@ FILTER_REQUIRE_HEADER_IMAGE = True
 FILTER_MAX_YEARS_SINCE_RELEASE = 1  # allow older only if score very high
 FILTER_MIN_SCORE_FOR_OLD_TITLES = 0.85
 FILTER_MAX_PRICE = 40.0  # USD-equivalent heuristic
-SCORE_PUBLISH_THRESHOLD = 0.5
+SCORE_PUBLISH_THRESHOLD = 0.35
 DEFAULT_DUPLICATION_THRESHOLD = 0.9
 # ---------------------------------------------------------------------------------------------------------------------
 # Retry defaults

@@ -65,7 +65,7 @@ class PublisherService(BaseService):
         end = datetime.now(UTC).replace(hour=23, minute=59, second=59, microsecond=999999)
         params = {
             "status": PublishStatus.published,
-            "created_at": {
+            "updated_at": {
                 "$gte": start,
                 "$lte": end,
             },
@@ -74,7 +74,13 @@ class PublisherService(BaseService):
         published_discounts = await self._discount_publication_repo.get_all(params)
         published_news = await self._news_publication_repo.get_all(params)
         published_posts = await self._reddit_post_publication_repo.get_all(params)
-        return len(published_games) + len(published_discounts) + len(published_news) + len(published_posts)
+        published_reviews = await self._review_publication_repo.get_all(params)
+        published_leaderboards = await self._leaderboard_publication_repo.get_all(params)
+
+        return (
+                len(published_games) + len(published_discounts) + len(published_news) + len(published_posts)
+                + len(published_reviews) + len(published_leaderboards)
+        )
 
     async def schedule_publications(self, posts: list[AllocatedPostsSchema]):
         """Публикует (или планирует) посты в соответствии с их временем"""

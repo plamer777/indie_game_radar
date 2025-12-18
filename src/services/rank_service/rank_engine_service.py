@@ -157,15 +157,15 @@ class RankEngineService(BaseService):
         cycle_log = self._log.bind(method="filter_games")
         cycle_log.info("started")
         now = datetime.now()
+        params = {
+            'last_score': {'$gte': C.GAME_FILTER_RATING_MIN},
+            '$or': [
+                {"release_date": {"$gte": now - timedelta(days=C.GAME_FILTER_RELEASE_DATE_DELTA_DAYS)}},
+                {"release_date": None}
+            ]
+        }
         scored_games = await self._ranked_games_repo.get_all(
-            {
-                'last_score': {'$gte': C.GAME_FILTER_RATING_MIN},
-                '$or': [
-                    {"release_date": {"$gte": now - timedelta(days=C.GAME_FILTER_RELEASE_DATE_DELTA_DAYS)}},
-                    {"release_date": None}
-                ]
-            },
-            sort_by={'last_score': -1}, generator_mode=True
+            params, sort_by={'last_score': -1}, generator_mode=True
         )
 
         unpublished = []
