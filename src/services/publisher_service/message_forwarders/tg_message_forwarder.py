@@ -51,52 +51,15 @@ class TelegramAutoForwarder:
 
                 self._log.info("new_post_detected", source=self._source_channel, text_preview=text[:50])
 
-                # Пересылка контента (текст, фото, видео, документы)
-                await self._forward_message(msg)
+                # Пересылка сообщения
+                await self._publisher.client.forward_messages(
+                    self._target,
+                    msg,
+                    from_peer=msg.peer_id
+                )
 
             except Exception as e:
                 self._log.error("forward_failed", error=str(e))
 
         self._log.info("listener_running")
         await client.run_until_disconnected()
-
-    async def _forward_message(self, msg: Message) -> None:
-        """
-        Унифицированная пересылка сообщения с контентом.
-        """
-
-        # Если это медиа — пересылаем через send_file
-        if msg.media:
-            self._log.info(f'Message type: {type(msg)}')
-            file = await msg.download_media(bytes)
-            if msg.photo and file:
-                await self._publisher.send_photo(
-                    target=self._target,
-                    photo=await msg.download_media(bytes),
-                    caption=msg.message or "",
-                )
-                return
-
-            if msg.video and file:
-                await self._publisher.send_video(
-                    target=self._target,
-                    video=await msg.download_media(bytes),
-                    caption=msg.message or "",
-                )
-                return
-
-            # другие файлы
-
-            if file:
-                await self._publisher._client.send_file(
-                    self._target,
-                    file=await msg.download_media(bytes),
-                    caption=msg.message or "",
-                )
-                return
-
-        # Если это только текст
-        await self._publisher.send_message(
-            target=self._target,
-            text=msg.message or "",
-        )
