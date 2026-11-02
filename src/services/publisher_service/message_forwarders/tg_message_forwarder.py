@@ -1,6 +1,5 @@
 from __future__ import annotations
 from telethon import events
-from telethon.tl.custom import Message
 from src.clients import TelethonPublisher
 from src.config.settings import settings
 from src.utils.logging import get_logger
@@ -9,9 +8,9 @@ from src.utils.logging import get_logger
 
 class TelegramAutoForwarder:
     """
-    Отдельный Telethon-клиент, который:
-    - слушает сообщения из канала/чата
-    - автоматически пересылает их боту или другому каналу
+    A separate Telethon client that:
+    - listens to messages from a channel/chat
+    - automatically forwards them to a bot or another channel
     """
 
     def __init__(
@@ -23,11 +22,9 @@ class TelegramAutoForwarder:
         :param source_channel: source channel username to forward messages from
         :param target_channel: target channel username to forward messages to
         """
-        self._source_channel = source_channel  # например: "@indie_gameradar"
-        self._target = target_channel              # например: "@MyForwarderBot"
+        self._source_channel = source_channel  # e.g. "@indie_gameradar"
+        self._target = target_channel              # e.g. "@MyForwarderBot"
 
-        self._api_id = settings.TELETHON_API_ID
-        self._api_hash = settings.TELETHON_API_HASH
         self._log = get_logger().bind(forwarder='Message_forwarder')
         self._publisher = TelethonPublisher()
 
@@ -39,7 +36,7 @@ class TelegramAutoForwarder:
         me = await client.get_me()
         self._log.info("listener_started", user=me.username)
 
-        # Подписываемся на новые сообщения из канала
+        # Subscribe to new channel messages
         @client.on(events.NewMessage(chats=self._source_channel))
         async def handler(event: events.NewMessage.Event) -> None:
             """The function serves to handle new messages in the source channel
@@ -51,7 +48,7 @@ class TelegramAutoForwarder:
 
                 self._log.info("new_post_detected", source=self._source_channel, text_preview=text[:50])
 
-                # Пересылка сообщения
+                # Forward the message
                 await self._publisher.client.forward_messages(
                     self._target,
                     msg,

@@ -17,7 +17,7 @@ from src.services.rank_service.adapters import NewsPublicationAdapter, RedditPub
 from src.services.shared_dependencies.calculators import NewsStatCalculator
 from src.services.rank_service.filters import GameFilter, NewsFilter, DiscountFilter, RedditPostFilter, \
     RedditDevPostFilter, RedditMemeFilter, GameReviewFilter, LeaderboardFilter
-from src.services.rank_service.rankers import NewsRanker, RedditPostRanker, RedditDevPostRanker, RedditMemeRanker
+from src.services.rank_service.rankers import NewsRanker, RedditDevPostRanker, RedditMemeRanker
 from src.services.rank_service.rankers.ranker import GameRanker
 from src.utils.logging import get_logger
 # ---------------------------------------------------------------------------------------------------------------------
@@ -74,7 +74,6 @@ class RankEngineService(BaseService):
         self._discount_publication_repo = discount_publication_repo
         self._ranked_games_repo = ranked_games_repo
         self._news_stat_calculator = NewsStatCalculator()
-        self._reddit_post_ranker = RedditPostRanker()
         self._reddit_post_repo = reddit_post_repo
         self._leaderboard_repo = leaderboard_repo
         self._ranked_reddit_posts_repo = ranked_reddit_posts_repo
@@ -114,13 +113,13 @@ class RankEngineService(BaseService):
         cycle_log.info("cycle_start")
         last_ranked_at = await self._ranked_games_repo.get_max_value("last_ranked_at")
         last_ranked_at = last_ranked_at.get('max_value') or datetime.min
-        # d) Скоринг
+        # d) Scoring
         games = await self._games.get_all(
             {'updated_at': {'$gte': last_ranked_at}},
             sort_by={'updated_at': -1}, generator_mode=True, show_deleted=True
         )
         now = datetime.now()
-        period_days = 45  # параметр можно вынести в настройки
+        period_days = 45  # could be moved to settings
         start_date = now - timedelta(days=period_days)
 
         async for game in games:
@@ -200,32 +199,6 @@ class RankEngineService(BaseService):
 
         except Exception as e:
             cycle_log.error(f"Error ranking news for game {game.steam_appid}: {e}")
-
-    async def _rank_reddit_posts(self, game: RankedGameModel | RankedGameSchema | GameModel, cycle_log: Logger) -> None:
-        """The method ranks reddit posts for a game.
-        :param game: The game to rank reddit posts for.
-        :param cycle_log: The logger to use for logging.
-        """
-        try:
-            reddit_game_related_posts = await self._reddit_post_repo.get_all(
-                {'steam_appid': game.steam_appid}, sort_by={'updated_at': -1}, generator_mode=True
-            )
-            ranked_posts = []
-            async for reddit_post in reddit_game_related_posts:
-                try:
-                    reddit_post_score = self._reddit_post_ranker.evaluate(game, reddit_post)
-                    ranked_post = RankedRedditPostSchema(
-                        **reddit_post.model_dump(), last_score=reddit_post_score
-                    )
-                    ranked_posts.append(ranked_post)
-
-                except Exception as e:
-                    cycle_log.error(f"Error ranking reddit post {reddit_post.reddit_id}: {e}")
-
-            await self._ranked_reddit_posts_repo.add_or_update(ranked_posts, search_field="reddit_id")
-
-        except Exception as e:
-            cycle_log.error(f"Error ranking reddit posts for game {game.steam_appid}: {e}")
 
     async def rank_game_dev_story_reddit_posts(self, cycle_log: Logger) -> None:
         """The method ranks game dev story reddit posts.
@@ -551,11 +524,3 @@ class RankEngineService(BaseService):
                 cycle_log.error("filter_discounts", exc_info=True, error=e)
 
         return unpublished
-
-    async def delete_ranked_games(
-        self, min_score: int | None = C.RANK_ENGINE_SERVICE_MIN_GAME_SCORE_TO_KEEP
-    ) -> None:
-        """The method deletes ranked games from database
-        :param min_score: The minimum score of the entities to keep existing.
-        """
-        await self._ranked_games_repo.delete({'last_score': {'$lt': min_score}}, many=True, delete_permanently=True)

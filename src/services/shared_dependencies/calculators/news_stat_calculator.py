@@ -8,7 +8,7 @@ from src.config import constants as C
 class NewsStatCalculator:
 
     def compute_news_stats(self, news: list[SteamNewsItem]) -> NewsStats:
-        """Агрегирует статистику по новостям для игры."""
+        """Aggregates news statistics for a game."""
         timestamps = [int(n.date.timestamp()) for n in news or [] if n.date]
 
         if not timestamps:

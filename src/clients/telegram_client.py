@@ -44,7 +44,7 @@ class TelegramPublisher:
         preview: bool = True,
         schedule_time: Optional[datetime] = None
     ) -> Optional[str]:
-        """Публикует или планирует сообщение в Telegram"""
+        """Publishes or schedules a Telegram message"""
         payload = {
             "chat_id": self._chat_id, "text": text, "disable_web_page_preview": not preview,
             "parse_mode": parse_mode, "schedule_date": int(schedule_time.timestamp()) if schedule_time else None
@@ -58,99 +58,6 @@ class TelegramPublisher:
             self._log.error("tg_publish_failed", error=str(e))
             return None
 
-    async def publish_video(
-        self,
-        video: Union[str, bytes],
-        caption: Optional[str] = None,
-        parse_mode: str = "HTML",
-        preview: bool = True,
-        schedule_time: Optional[datetime] = None,
-        duration: Optional[int] = None,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
-    ) -> Optional[str]:
-        """
-        Публикует видео в Telegram.
-        :param video: URL на видео или байты (например, BytesIO.getvalue())
-        :param caption: Подпись к ролику
-        :param parse_mode: HTML или MarkdownV2
-        :param preview: Показывать ли предпросмотр ссылок
-        :param schedule_time: Плановое время публикации (если поддерживается)
-        :param duration: Длительность ролика
-        :param width: Ширина ролика
-        :param height: Высота ролика
-        """
-
-        if isinstance(video, str):
-            files = None
-            data = {"video": video}
-        else:
-            files = {"video": ("video.mp4", video, "video/mp4")}
-            data = {}
-
-        data.update({
-            "chat_id": self._chat_id,
-            "caption": caption or "",
-            "parse_mode": parse_mode,
-            "disable_web_page_preview": not preview,
-        })
-
-        if duration:
-            data["duration"] = duration
-        if width:
-            data["width"] = width
-        if height:
-            data["height"] = height
-
-        if schedule_time:
-            data["schedule_date"] = int(schedule_time.timestamp())
-
-        try:
-            msg_id = await self._retry.run(self.post, endpoint='sendVideo', data=data, files=files)
-            self._log.info("tg_video_published", msg_id=msg_id)
-            return msg_id
-        except Exception as e:
-            self._log.error("tg_video_publish_failed", error=str(e))
-            return None
-
-    async def publish_poll(
-        self,
-        question: str,
-        options: list[str],
-        is_anonymous: bool = True,
-        allows_multiple_answers: bool = False,
-        schedule_time: Optional[datetime] = None
-    ) -> Optional[str]:
-        """
-        Публикует опрос в Telegram.
-        :param question: текст вопроса
-        :param options: список вариантов (2–10 вариантов)
-        :param is_anonymous: анонимный ли опрос
-        :param allows_multiple_answers: можно ли выбирать несколько вариантов
-        :param schedule_time: плановая дата публикации
-        """
-
-        payload = {
-            "chat_id": self._chat_id,
-            "question": question,
-            "options": options,
-            "is_anonymous": is_anonymous,
-            "allows_multiple_answers": allows_multiple_answers,
-        }
-
-        if schedule_time:
-            payload["schedule_date"] = int(schedule_time.timestamp())
-
-        try:
-            msg_id = await self._retry.run(self.post, endpoint='sendPoll', payload_json=payload)
-            self._log.info("tg_poll_published", msg_id=msg_id)
-            return msg_id
-
-        except Exception as e:
-            self._log.error("tg_poll_publish_failed", error=str(e))
-
-            return None
-
     async def publish_photo(
         self,
         photo: Union[str, bytes],
@@ -160,20 +67,20 @@ class TelegramPublisher:
         schedule_time: Optional[datetime] = None
     ) -> Optional[str]:
         """
-        Публикует изображение с подписью в Telegram.
-        :param photo: URL картинки, либо байты изображения (например, из BytesIO)
-        :param caption: Подпись под фото (текст поста)
-        :param parse_mode: Форматирование ('HTML' или 'MarkdownV2')
-        :param preview: Показывать ли предпросмотр ссылок
-        :param schedule_time: Плановая дата публикации (если поддерживается)
+        Publishes an image with a caption to Telegram.
+        :param photo: image URL or image bytes (e.g. from BytesIO)
+        :param caption: caption under the photo (post text)
+        :param parse_mode: formatting ('HTML' or 'MarkdownV2')
+        :param preview: whether to show link previews
+        :param schedule_time: scheduled publish date (if supported)
         """
 
-        # Если передан URL
+        # If a URL was passed
         if isinstance(photo, str):
             files = None
             data = {"photo": photo}
         else:
-            # Переданы байты изображения
+            # Image bytes were passed
             files = {"photo": ("image.jpg", photo, "image/jpeg")}
             data = {}
 

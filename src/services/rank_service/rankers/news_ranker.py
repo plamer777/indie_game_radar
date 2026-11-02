@@ -15,7 +15,7 @@ class NewsRanker:
         self.game_rank_lookup = game_rank_lookup or (lambda gid: 0.0)
 
     def _length_penalty(self, text: str) -> float:
-        """Штрафует короткие тексты"""
+        """Penalizes short texts"""
         min_len = C.MIN_NEWS_CONTENT_LENGTH
         if len(text) < min_len:
             return len(text) / min_len
@@ -80,8 +80,8 @@ class NewsRanker:
 
     def _info_value_score(self, text: str) -> float:
         """
-        Оценивает информационную значимость текста.
-        Новая версия: динамическое взвешивание по уровню важности ключевых слов.
+        Scores the informational value of the text.
+        New version: dynamic weighting by keyword importance level.
         """
         if not text:
             return 0.0
@@ -90,7 +90,7 @@ class NewsRanker:
 
         score = 0.5
 
-        # Усиление по ключевым словам
+        # Keyword boost
         for kw in C.HIGH_VALUE_KEYWORDS:
             if kw in lower:
                 score += 0.25
@@ -101,11 +101,11 @@ class NewsRanker:
             if kw in lower:
                 score -= 0.25
 
-        # Дополнительное понижение если текст явно про фиксы и короткий
+        # Extra penalty if the text is clearly about fixes and is short
         if any(kw in lower for kw in C.LOW_VALUE_KEYWORDS) and len(text) < C.SHORT_TEXT_THRESHOLD:
             score -= 0.3
 
-        # Понижение для слов вроде "dev log", "patch notes"
+        # Penalty for words like "dev log", "patch notes"
         if any(kw in lower for kw in C.DEVLOG_KEYWORDS):
             score -= 0.2
 
@@ -135,11 +135,11 @@ class NewsRanker:
         content_len = len(clean_text)
         richness = clamp(content_len / C.MAX_CONTENT_LENGTH, 0.0, 1.0)
 
-        # бонус за медиа (поиск raw_html для простоты)
+        # media bonus (search raw_html for simplicity)
         if "<img" in raw_html or "<video" in raw_html:
             richness = min(1.0, richness + C.MEDIA_BONUS)
 
-        # Информационная ценность
+        # Informational value
         info_value = self._info_value_score(clean_text)
         length_factor = self._length_penalty(clean_text)
         content_score = richness * info_value * length_factor
@@ -152,7 +152,7 @@ class NewsRanker:
         # 5️⃣ Game quality
         game_quality = clamp(game.last_score or self.game_rank_lookup(game.id), 0.0, 1.0)
 
-        # Если новость малозначимая, влияние качества игры снижается
+        # If the news is low-value, reduce the influence of game quality
         if info_value < C.INFO_VALUE_GAME_QUALITY_THRESHOLD:
             game_quality *= C.GAME_QUALITY_REDUCTION_FACTOR
 
@@ -170,7 +170,7 @@ class NewsRanker:
                 )
                 recency_boost = clamp(recency_boost, 1.0, C.RECENCY_BOOST_MAX)
 
-        # 7️⃣ Итоговый скоринг
+        # 7️⃣ Final scoring
         raw_score = (
             C.WEIGHT_FRESHNESS * freshness
             + C.WEIGHT_SOURCE * source_weight

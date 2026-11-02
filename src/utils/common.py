@@ -51,24 +51,24 @@ def is_markdown(text: str) -> bool:
 
 def clean_text(raw_text: str, max_paragraphs: int = 1) -> str:
     """
-    Универсальная очистка HTML/Markdown описаний игр для публикации в Telegram.
+    Universal cleanup of HTML/Markdown game descriptions for Telegram publishing.
     """
     if not raw_text:
         return ""
 
     text = raw_text.strip()
 
-    # --- 1. Преобразуем Markdown → HTML (если есть markdown-разметка)
+    # --- 1. Convert Markdown → HTML (if markdown markup is present)
     if any(sym in text for sym in ['**', '*', '_', '[', ']', '(', ')', '#', '`']):
         try:
             text = markdown.markdown(text)
         except Exception:
             pass
 
-    # --- 2. Парсим HTML и достаём чистый текст с минимальной структурой
+    # --- 2. Parse HTML and extract clean text with minimal structure
     soup = BeautifulSoup(text, "html.parser")
 
-    # Сохраняем базовую структуру (заголовки, списки, абзацы)
+    # Preserve basic structure (headings, lists, paragraphs)
     for br in soup.find_all("br"):
         br.replace_with("\n")
     for p in soup.find_all("p"):
@@ -78,19 +78,19 @@ def clean_text(raw_text: str, max_paragraphs: int = 1) -> str:
     for hr in soup.find_all("hr"):
         hr.replace_with("\n— — —\n")
 
-    # --- 3. Убираем всё лишнее (теги, скрипты и т.д.)
+    # --- 3. Remove everything extra (tags, scripts, etc.)
     cleaned = soup.get_text(separator=" ", strip=True)
 
-    # --- 4. Форматируем: удаляем лишние пробелы и повторяющиеся переносы
+    # --- 4. Format: remove extra spaces and repeated newlines
     cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
     cleaned = re.sub(r'\s{2,}', ' ', cleaned)
 
-    # --- 5. Поддерживаем простое Markdown-форматирование для Telegram
-    # (оставляем *, _, `, но убираем лишние)
-    cleaned = re.sub(r'(?<!\S)\*(?!\S)', '', cleaned)  # одиночные * без пар
+    # --- 5. Support simple Markdown formatting for Telegram
+    # (keep *, _, `, but drop stray ones)
+    cleaned = re.sub(r'(?<!\S)\*(?!\S)', '', cleaned)  # lone * without a pair
     cleaned = re.sub(r'(?<!\S)_(?!\S)', '', cleaned)
 
-    # --- 6. Обрезаем до разумного числа абзацев
+    # --- 6. Trim to a reasonable number of paragraphs
     paragraphs = [p.strip() for p in cleaned.split("\n") if p.strip()]
     if len(paragraphs) > max_paragraphs:
         paragraphs = paragraphs[:max_paragraphs]
@@ -98,9 +98,9 @@ def clean_text(raw_text: str, max_paragraphs: int = 1) -> str:
 
     final_text = "\n\n".join(paragraphs)
 
-    # --- 7. Финальная чистка и аккуратная подача
+    # --- 7. Final cleanup and tidy presentation
     final_text = final_text.strip()
-    final_text = re.sub(r'([^\n])\n([^\n])', r'\1\n\n\2', final_text)  # больше воздуха
+    final_text = re.sub(r'([^\n])\n([^\n])', r'\1\n\n\2', final_text)  # more breathing room
     return final_text
 
 
@@ -125,7 +125,8 @@ def execute_in_thread(coro: Callable) -> Callable:
                     lambda t: logging.error("Task failed", exc_info=t.exception()) if t.exception() else None
                 )
                 break
-            except Exception as e:
+            except Exception as err:
+                e = err
                 kwargs.pop('task_id')
         else:
             if e:
@@ -179,7 +180,7 @@ def repeat_execution_async(
                             f'Async function: {func.__name__}, kwargs:'
                             f' {kwargs}, interrupted with error: {e}')
 
-                except Exception as e:
+                except Exception:
                     return result
 
             if not ignore_errors and e:

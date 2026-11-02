@@ -33,7 +33,7 @@ class Orchestrator:
 
     @execute_in_thread
     async def _start_harvester(self):
-        # a) Получаем список appids (будет очень большим). Ограничим первыми N для демо.
+        # a) Get the appid list (very large). Limit to the first N for the demo.
         logging.info('harvester_start')
         cycle_log = self._log.bind(service="save_to_db")
         cycle_log.info("cycle_start")
@@ -42,7 +42,7 @@ class Orchestrator:
             cycle_start = datetime.now()
             cycle_end = cycle_start.replace(hour=12, minute=0, second=0, microsecond=0)
 
-            # если уже после 12 — перенести конец на завтра
+            # if already past 12 — move the end to tomorrow
             if cycle_end <= cycle_start:
                 cycle_end += timedelta(days=1)
 
@@ -52,9 +52,9 @@ class Orchestrator:
                 await self._api_harvester.fetch_cycle(until=cycle_end)
             except Exception as e:
                 self._log.error("fetch_cycle_error", exc_info=True, error=e)
-                await asyncio.sleep(60)  # не спамить при авариях
+                await asyncio.sleep(60)  # avoid spamming on failures
 
-            # дожидаемся следующего окна (до следующего 12 UTC)
+            # wait for the next window (until the next 12 UTC)
             now = datetime.now()
             if now < cycle_end:
                 sleep_seconds = (cycle_end - now).total_seconds()
@@ -74,7 +74,6 @@ class Orchestrator:
                 cycle_log.error("ranker_cycle_error", exc_info=True, error=e)
 
             await self._api_harvester.delete_stage_data(now)
-            # await self._rank_engine.delete_ranked_games()
             await asyncio.sleep(C.ORCH_RANKING_INTERVAL)
 
     async def _allocate_posts(self, top_n: int) -> list[AllocatedPostsSchema]:
@@ -127,10 +126,10 @@ class Orchestrator:
         while True:
             now = datetime.now(UTC)
             if C.ALLOCATION_START_HOUR <= now.hour < C.ALLOCATION_END_HOUR:
-                # --- 1) Распределение ---
+                # --- 1) Allocation ---
                 allocated = await self._allocate_posts(top_n)
 
-                # --- 2) Публикации ---
+                # --- 2) Publications ---
                 await self._publisher.schedule_publications(allocated)
 
                 next_run = (now + timedelta(days=1)).replace(

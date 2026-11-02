@@ -1,19 +1,19 @@
 REDDIT_MEME_TEMPLATES = [
-# --- Template 1: Классический мем ---
+# --- Template 1: Classic meme ---
 """
 😂 <b>{{ title }}</b>
 
 #funny #{{ subreddit }}
 """,
 
-# --- Template 2: Мем про геймдев ---
+# --- Template 2: Gamedev meme ---
 """
 👾 <b>{{ title }}</b>
 
 #memes #{{ subreddit }}
 """,
 
-# --- Template 3: Мем без заголовка (если title слишком короткий или не нужен) ---
+# --- Template 3: Meme without a title (if the title is too short or unneeded) ---
 """
 🙈 <b>{{ title }}</b>
 

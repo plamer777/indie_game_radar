@@ -14,7 +14,7 @@ services:
     env_file:
       - .env
 
-    # Монтируем директорию с Telethon session-файлом
+    # Mount the directory containing the Telethon session file
     volumes:
       - /home/indie_game_radar/tg_sessions/forwarder_prod_session.session:/app/forwarder_prod_session.session
 

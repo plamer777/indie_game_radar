@@ -4,7 +4,6 @@ from openai import AsyncOpenAI
 from src.db.repositories import NewsPublicationRepository
 from src.mixins import EmbeddingMixin
 from src.config import constants as C
-from src.models.game import SteamNewsItem
 from src.schemas import DeduplicationSchema, NewsPublicationSchema
 # ---------------------------------------------------------------------------------------------------------------------
 

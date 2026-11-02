@@ -1,7 +1,5 @@
 from datetime import datetime, timedelta
 from typing import List, AsyncGenerator
-import numpy as np
-import re
 from openai import AsyncOpenAI
 from src.db.repositories import CheckedEntityRepository
 from src.models import RankedGameModel
@@ -19,7 +17,6 @@ class RedditPostFilter(BaseFilter):
         open_ai_client: AsyncOpenAI,
         checked_entity_repo: CheckedEntityRepository,
         time_window_hours: int = C.REDDIT_FILTER_TIME_WINDOW_HOURS,
-        similarity_threshold: float = C.REDDIT_FILTER_SIMILARITY_THRESHOLD,
         embedding_model: str = C.REDDIT_FILTER_EMBEDDING_MODEL,
         gpt_model: str = C.REDDIT_FILTER_GPT_MODEL,
         prompt_template: str = C.REDDIT_FILTER_PROMPT_TEMPLATE
@@ -29,7 +26,6 @@ class RedditPostFilter(BaseFilter):
             embedding_model = embedding_model
         )
         self.time_window = timedelta(hours=time_window_hours)
-        self.similarity_threshold = similarity_threshold
         self._prompt_template = prompt_template
 
     async def filter_posts(
@@ -42,7 +38,7 @@ class RedditPostFilter(BaseFilter):
         if not self._is_indie_game(game):
             return
 
-        # 1️⃣ Базовая фильтрация по времени и минимальным метрикам
+        # 1️⃣ Basic filtering by time and minimum metrics
         for p in posts:
             if (now - p.created_utc) > self.time_window:
                 continue
@@ -60,39 +56,6 @@ class RedditPostFilter(BaseFilter):
             if await self._is_content_valid(pub_schema, emb_schema, prompt, 'reddit'):
                 yield pub_schema
 
-    async def _filter_by_relevance(
-        self, posts: List[RankedRedditPost], game: RankedGameModel
-    ) -> List[RankedRedditPost]:
-        """
-        Проверяет релевантность постов игре:
-          1️⃣ если есть ссылка на Steam с appid — пропускаем без проверки эмбеддингов
-          2️⃣ если в названии игры ≥ 3 слов — считаем эмбеддинговую близость
-          3️⃣ остальные посты отбрасываются
-        """
-        filtered = []
-
-        steam_pattern = re.compile(r"store\.steampowered\.com/app/(\d+)", re.IGNORECASE)
-
-        for p in posts:
-            # 1️⃣ проверка наличия appid в ссылке
-            url = (p.url or "") + " " + (p.selftext or "")
-            match = steam_pattern.search(url)
-            if match:
-                try:
-                    found_appid = int(match.group(1))
-                    if game.steam_appid and found_appid == game.steam_appid:
-                        p.relevance = 1.0
-                        filtered.append(p)
-                        continue
-                except ValueError:
-                    pass
-
-        return filtered
-
     def _has_bad_flair(self, flair: str) -> bool:
         f = flair.lower()
         return any(bad in f for bad in C.REDDIT_FILTER_BAD_FLAIRS)
-
-    def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
-        denom = (np.linalg.norm(a) * np.linalg.norm(b))
-        return float(np.dot(a, b) / denom) if denom else 0.0

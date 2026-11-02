@@ -13,8 +13,8 @@ from src.utils.logging import get_logger
 
 class ContentAllocationStrategy:
     """
-    Распределяет публикации по источникам с учетом времени суток
-    и формирует расписание на весь день (утро → день → вечер).
+    Distributes publications across sources based on the time of day
+    and builds a schedule for the whole day (morning → day → evening).
     """
 
     def __init__(
@@ -72,31 +72,31 @@ class ContentAllocationStrategy:
         return self._reviews
 
     # -------------------------------------------------------------------------
-    # --------------------------- ВРЕМЯ И ИНТЕРВАЛЫ ----------------------------
+    # --------------------------- TIME AND INTERVALS ---------------------------
     # -------------------------------------------------------------------------
 
     def _determine_time_bounds(self) -> tuple[datetime, datetime]:
-        """Определяет начало и конец планирования публикаций."""
+        """Determines the start and end of the publication scheduling window."""
         now = datetime.now(UTC)
         start_hour, end_hour = C.TIME_WINDOWS["morning"][0], C.TIME_WINDOWS["evening"][1]
         today_start = now.replace(hour=start_hour, minute=0, second=0, microsecond=0)
         today_end = now.replace(hour=end_hour, minute=0, second=0, microsecond=0)
 
         if now < today_start:
-            # если раньше 8 утра — начинаем с 8:00
+            # if earlier than 8 AM — start at 8:00
             start_time = today_start
         elif now >= today_end:
-            # если позже 22:00 — переносим на следующий день
+            # if later than 22:00 — move to the next day
             start_time = today_start + timedelta(days=1)
             today_end = today_end + timedelta(days=1)
         else:
-            # начинаем с текущего времени + 15 минут
+            # start from current time + 15 minutes
             start_time = now + timedelta(minutes=15)
 
         return start_time, today_end
 
     def _split_time_periods(self, start_time: datetime, end_time: datetime) -> list[tuple[str, datetime, datetime]]:
-        """Разбивает день на три временных окна (утро, день, вечер)."""
+        """Splits the day into three time windows (morning, day, evening)."""
         segments = []
         for name, (start_h, end_h) in C.TIME_WINDOWS.items():
             seg_start = start_time.replace(hour=start_h, minute=0)
@@ -110,14 +110,14 @@ class ContentAllocationStrategy:
         return segments
 
     # -------------------------------------------------------------------------
-    # --------------------------- ЛОГИКА РАСПРЕДЕЛЕНИЯ -------------------------
+    # --------------------------- ALLOCATION LOGIC -------------------------
     # -------------------------------------------------------------------------
 
     def _allocate_slots(self, total_posts: int, priorities: dict[str, float]) -> dict[str, int]:
-        """Рассчитывает, сколько постов выделить под каждую категорию."""
+        """Computes how many posts to allocate to each category."""
         base_allocation = {k: int(total_posts * v) for k, v in priorities.items()}
 
-        # Корректируем округления
+        # Fix rounding
         allocated = sum(base_allocation.values())
         if allocated < total_posts:
             diff = total_posts - allocated
@@ -127,7 +127,7 @@ class ContentAllocationStrategy:
         return base_allocation
 
     def _redistribute_if_needed(self, allocation: dict[str, int]) -> dict[str, int]:
-        """Если контента не хватает, перераспределяет в пользу других категорий."""
+        """If there is not enough content, redistributes to other categories."""
         available = {
             "news": len(self._news),
             "games": len(self._games),
@@ -156,18 +156,18 @@ class ContentAllocationStrategy:
         return allocation
 
     # -------------------------------------------------------------------------
-    # --------------------------- ОСНОВНОЙ МЕТОД ------------------------------
+    # --------------------------- MAIN METHOD ------------------------------
     # -------------------------------------------------------------------------
 
     def schedule_daily_posts(self, total_posts: int = C.DEFAULT_DAILY_POSTS) -> list[AllocatedPostsSchema]:
         """
-        Формирует полное расписание публикаций на день.
-        Возвращает список с указанием поста и времени публикации.
+        Builds the full publication schedule for the day.
+        Returns a list of posts with their publish times.
         """
         start_time, end_time = self._determine_time_bounds()
         segments = self._split_time_periods(start_time, end_time)
 
-        # равномерно делим total_posts по времени суток
+        # evenly split total_posts across the time windows
         posts_per_segment = total_posts // len(segments)
         leftover = total_posts % len(segments)
 
@@ -179,7 +179,7 @@ class ContentAllocationStrategy:
             allocation = self._allocate_slots(count, priorities)
             allocation = self._redistribute_if_needed(allocation)
 
-            # Берём контент
+            # Take the content
             segment_posts: list[AllocatedPostsSchema] = []
             for category, amount in allocation.items():
                 pool = getattr(self, category, [])
@@ -191,7 +191,7 @@ class ContentAllocationStrategy:
                         pool.remove(post)
                     segment_posts.append(AllocatedPostsSchema(category=category, post=post))
 
-            # равномерно распределяем по времени внутри сегмента
+            # distribute evenly across time within the segment
             if not segment_posts:
                 continue
 
@@ -201,6 +201,6 @@ class ContentAllocationStrategy:
                 entry.publish_time = publish_time
                 schedule.append(entry)
 
-        # итоговое расписание отсортировано по времени
+        # final schedule sorted by time
         schedule.sort(key=lambda x: x.publish_time)
         return schedule

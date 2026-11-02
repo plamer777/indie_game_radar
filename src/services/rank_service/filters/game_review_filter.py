@@ -7,21 +7,21 @@ from src.services.rank_service.filters.base_filter import BaseFilter
 
 class GameReviewFilter(BaseFilter):
     """
-    Фильтр для отбора отзывов.
-    На вход получает список отзывов и возвращает N случайно выбранных.
+    Filter for selecting reviews.
+    Takes a list of reviews and returns N randomly selected ones.
     """
 
     def __init__(self, sample_size: int = 10) -> None:
         """
-        :param sample_size: сколько отзывов вернуть после выборки
+        :param sample_size: how many reviews to return after sampling
         """
         super().__init__()
         self._sample_size = sample_size
 
     def filter_reviews(self, game: RankedGameModel) -> ReviewPublicationSchema | None:
         """
-        Возвращает sample_size отзывов, случайно выбранных из списка.
-        Если отзывов меньше — вернёт все.
+        Returns sample_size reviews randomly picked from the list.
+        If there are fewer — returns all of them.
         """
         if not self._is_indie_game(game):
             return None
@@ -30,7 +30,7 @@ class GameReviewFilter(BaseFilter):
         if not reviews:
             return None
 
-        # безопасный sample, если отзывов меньше чем sample_size
+        # safe sample when there are fewer reviews than sample_size
         selected = random.sample(reviews, k=min(self._sample_size, len(reviews)))
         publication_schema = ReviewPublicationSchema(
             **review_info.model_dump(), steam_appid=game.steam_appid, game_name=game.name,

@@ -18,13 +18,6 @@ class EmbeddingMixin:
         self._seen_embeddings: list[np.ndarray] = []
         self._logger = get_logger(__name__).bind(service="embedding mixin")
 
-    async def _get_item_embedding(self, item: DeduplicationSchema) -> np.ndarray:
-        """Get the embedding for the given item.
-        :param item: The item to get the embedding for.
-        :return: The embedding for the given item.
-        """
-        return await self._get_embedding(f"{item.author or ''} {item.title} {item.content or ''}")
-
     async def _get_embedding(self, text: str) -> np.ndarray:
         """Get the embedding for the given text.
         :param text: The text to get the embedding for.

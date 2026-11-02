@@ -3,21 +3,20 @@ from src.clients import SpeedrunClient, DirectRedditClient
 from src.clients.igdb_client import AsyncIGDBClient
 from src.clients.steam_client import AsyncSteamClient
 from src.clients.telegram_client import TelegramPublisher
+from src.clients.tumblr_client import TumblrClient
+from src.config import constants as C
 from src.config.settings import settings
 from src.db.repositories import GameRepository, IGDBRepository, GamePublicationRepository, AppRepository, \
     GameSnapshotRepository, NewsPublicationRepository, DiscountPublicationRepository, RankedGameRepository, \
     RedditPostRepository, RankedRedditPostRepository, RedditPostPublicationRepository, CheckedEntityRepository, \
     ReviewPublicationRepository, LeaderboardRepository, GameLeaderboardPublicationRepository
-from src.managers.cache import RedisCache
 from src.orchestrators.core_orchestrator import Orchestrator
 from src.services.data_service import APIHarvesterService
 from src.services.publisher_service import PublisherService
-from src.services.publisher_service.editors import EditorialRefiner
 from src.services.rank_service.rank_engine_service import RankEngineService
 # ---------------------------------------------------------------------------------------------------------------------
 
 # Managers
-cache = RedisCache()
 client = AsyncOpenAI(api_key=settings.OPEN_AI_KEY)
 
 # Repositories
@@ -39,12 +38,22 @@ leaderboard_publication_repo = GameLeaderboardPublicationRepository()
 
 
 # Clients/helpers
-steam = AsyncSteamClient(cache)
-igdb = AsyncIGDBClient(cache)
+steam = AsyncSteamClient()
+igdb = AsyncIGDBClient()
 reddit = DirectRedditClient()
 speedrun_client = SpeedrunClient()
 tg = TelegramPublisher()
-editorial_refiner = EditorialRefiner(client)
+
+# Tumblr client (optional - only instantiate if credentials are provided)
+tumblr = None
+if all([C.TUMBLR_CONSUMER_KEY, C.TUMBLR_CONSUMER_SECRET, C.TUMBLR_OAUTH_TOKEN, C.TUMBLR_OAUTH_TOKEN_SECRET, C.TUMBLR_BLOG_IDENTIFIER]):
+    tumblr = TumblrClient(
+        consumer_key=C.TUMBLR_CONSUMER_KEY,
+        consumer_secret=C.TUMBLR_CONSUMER_SECRET,
+        oauth_token=C.TUMBLR_OAUTH_TOKEN,
+        oauth_token_secret=C.TUMBLR_OAUTH_TOKEN_SECRET,
+        blog_identifier=C.TUMBLR_BLOG_IDENTIFIER
+    )
 
 # Services
 api_harvester = APIHarvesterService(
@@ -88,6 +97,7 @@ publisher = PublisherService(
     open_ai_client=client,
     review_publication_repo=review_publication_repo,
     leaderboard_publication_repo=leaderboard_publication_repo,
+    tumblr_client=tumblr,
 )
 
 

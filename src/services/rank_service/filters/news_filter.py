@@ -52,7 +52,7 @@ class NewsFilter(BaseFilter):
         if not self._is_indie_game(game):
             return
 
-        # 1️⃣ фильтр по времени и источникам
+        # 1️⃣ filter by time and sources
         for item in news_items:
             if (now - item.date) > self.time_window:
                 continue
@@ -64,7 +64,7 @@ class NewsFilter(BaseFilter):
                 continue
             filtered.append(item)
 
-        # 2️⃣ фильтр по релевантности (если есть query)
+        # 2️⃣ relevance filter (if a query is provided)
         if query:
             query_emb = await self._get_embedding(query)
             results = []
@@ -77,13 +77,13 @@ class NewsFilter(BaseFilter):
                     results.append(item)
             filtered = sorted(results, key=lambda x: x.relevance, reverse=True)
 
-        # 3️⃣ фильтр по содержанию
+        # 3️⃣ content filter
         for item in filtered:
             text = f"{item.title} {item.contents or ''}".lower()
             if self._contains_low_value_words(text) and not self._contains_important_words(text):
                 continue
 
-            # 4️⃣ удаляем дубли по смыслу
+            # 4️⃣ drop semantic duplicates
             emb_schema = DeduplicationSchema(author=item.author, title=item.title, content=item.contents)
             publication_schema = NewsPublicationSchema(**item.model_dump(), header_image=game.header_image)
             prompt = self._prompt_template.format(game_name=game.name, title=item.title, text=item.contents)

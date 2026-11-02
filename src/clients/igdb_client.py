@@ -8,7 +8,6 @@ from src.exceptions.api_exceptions import TooManyRequestsException
 from src.schemas.igdb_schemas import IGDBMetaSchema
 from src.utils.common import repeat_execution_async
 from src.clients.shared_dependencies.rate_limiter import SemaphoreLimiter
-from src.managers.cache import RedisCache
 from src.utils.logging import get_logger
 from src.config.settings import settings
 from src.models import PopularityMetrics, TimeToBeat
@@ -18,7 +17,7 @@ from src.config import constants as C
 
 class AsyncIGDBClient(BaseAPIClient):
     def __init__(
-        self, cache: RedisCache, client_id: str = settings.IGDB_CLIENT_ID,
+        self, client_id: str = settings.IGDB_CLIENT_ID,
         client_secret: str = settings.IGDB_CLIENT_SECRET,
         base_url: str = C.IGDB_BASE_URL,
         oauth_url: str = C.TWITCH_OAUTH_URL,
@@ -26,7 +25,6 @@ class AsyncIGDBClient(BaseAPIClient):
         super().__init__()
         self._client = httpx.AsyncClient(timeout=C.HTTP_TIMEOUT_SECONDS)
         self._limiter = SemaphoreLimiter(C.IGDB_MAX_CONCURRENCY)
-        self._cache = cache
         self._log = get_logger().bind(client="igdb")
         self._access_token: Optional[str] = None
         self._client_id = client_id

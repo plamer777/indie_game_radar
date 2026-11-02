@@ -9,7 +9,6 @@ from src.schemas import GameSchema
 from src.schemas.game_schemas import AppSchema
 from src.utils.common import repeat_execution_async
 from src.clients.shared_dependencies.rate_limiter import SemaphoreLimiter
-from src.managers.cache import RedisCache
 from src.utils.logging import get_logger
 from src.config.settings import settings
 from src.models.game import CurrentPlayersResponse, \
@@ -21,14 +20,13 @@ from src.config import constants as C
 
 class AsyncSteamClient(BaseAPIClient):
     def __init__(
-        self, cache: RedisCache, api_key: str = settings.STEAM_API_KEY,
+        self, api_key: str = settings.STEAM_API_KEY,
         web_api_base_url: str = C.STEAM_WEBAPI_BASE,
         store_base_url: str = C.STEAM_STORE_BASE
     ) -> None:
         super().__init__()
         self._client = httpx.AsyncClient(timeout=C.HTTP_TIMEOUT_SECONDS)
         self._limiter = SemaphoreLimiter(C.STEAM_MAX_CONCURRENCY)
-        self._cache = cache
         self._log = get_logger().bind(client="steam")
         self._api_key = api_key
         self._base_web_api_url = web_api_base_url
@@ -107,13 +105,13 @@ class AsyncSteamClient(BaseAPIClient):
         game = await self.fetch_app_details(appid)
         if not game:
             return None
-        # параллельно запрашиваем дополнительные
+        # fetch additional data in parallel
         current_players = await self.fetch_current_players(appid)
         achievements = await self.fetch_achievements(appid)
         reviews = await self.fetch_reviews(appid)
         news = await self.fetch_app_news(appid)
 
-        # объединяем в модель (если ты расширишь GameModel или добавишь поле ext_info)
+        # merge into the model (if GameModel is extended or the ext_info field is added)
         game.last_news = news
         game.ext_info = SteamExtendedInfo(
             steam_appid=appid,

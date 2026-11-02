@@ -24,7 +24,7 @@ class GameLeaderboardPublicationAdapter:
         leaders = []
 
         for c in record.category_leaderboards:
-            # если важен порядок — НЕ сортируем
+            # if order matters — do NOT sort
             leaders.append(c.result.player.id)
 
         data = json.dumps(leaders, ensure_ascii=False, separators=(",", ":"))

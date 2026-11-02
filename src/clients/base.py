@@ -13,7 +13,6 @@ class BaseAPIClient:
         self._delay = 0
         self._last_increased_time = 0
         self._min_increase_diff_sec = C.BASE_CLIENT_MIN_INCREASE_DIFF_SEC
-        self._increase_step = C.BASE_CLIENT_INCREASE_STEP
 
     def _increase_delay(self) -> None:
         """The method to increase the delay with checking the minimum increase difference and avoid too fast increase

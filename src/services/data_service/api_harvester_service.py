@@ -61,17 +61,17 @@ class APIHarvesterService(BaseService):
 
     async def fetch_cycle(self, until: datetime) -> None:
         """
-        Выполняет инкрементальную выгрузку, пока не наступит заданное время `until`.
+        Performs incremental harvesting until the given `until` time is reached.
         """
         cycle_log = self._log.bind(method="fetch_cycle")
         cycle_log.info("cycle_start")
 
-        # a) периодически обновляем список app
+        # a) periodically refresh the app list
         await self.fetch_steam_apps()
-        # # b) выгружаем свежие посты по ключевым запросам гейм дева и мемы
+        # # b) fetch fresh posts for key gamedev queries and memes
         await self.fetch_game_dev_reddit_posts()
         await self.fetch_game_meme_reddit_posts()
-        # c) выгружаем игры партиями
+        # c) fetch games in batches
         await self.fetch_steam_games(until)
 
         cycle_log.info("cycle_complete")
@@ -146,7 +146,7 @@ class APIHarvesterService(BaseService):
                 cycle_log.error("fetch_steam_games", exc_info=True, error=e)
                 await asyncio.sleep(5)
 
-        # если остались необработанные
+        # if any unprocessed items remain
         if batch:
             await self._bounded_gather(self.fetch_meta_by_game, batch, concurrency=C.ORCH_FETCH_META_CONCURRENCY)
 
@@ -183,20 +183,6 @@ class APIHarvesterService(BaseService):
         except Exception as e:
             self._log.error("fetch_game_leaderboard", exc_info=True, error=e)
             return None
-
-    async def fetch_reddit_arts_by_game(self, game: GameSchema | GameModel) -> list[RedditPostSchema]:
-        try:
-            # TODO method don't works for now, not any art found for games
-            reddit_posts = await self._reddit_adapter.fetch_game_pixel_art(
-                game_names=[game.name]
-            )
-            [setattr(post, 'game_name', game.name) for post in reddit_posts]
-            await self._reddit_posts.add_or_update(reddit_posts, search_field="reddit_id")
-
-            return reddit_posts
-        except Exception as e:
-            self._log.error("fetch_reddit_posts_by_game", exc_info=True, error=e)
-            return []
 
     async def fetch_game_dev_reddit_posts(self) -> list[RedditPostSchema]:
         """The method serves to fetch and save reddit posts related to game dev theme

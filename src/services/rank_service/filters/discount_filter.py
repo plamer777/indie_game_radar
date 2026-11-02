@@ -20,7 +20,7 @@ class DiscountFilter(BaseFilter):
         if not snapshots or len(snapshots) < 2:
             return None
 
-        # Сортируем снапшоты по дате
+        # Sort snapshots by date
         snapshots = sorted(snapshots, key=lambda s: s.created_at)
         try:
             with_min_price, with_max_price = min(snapshots, key=lambda s: s.price), max(snapshots, key=lambda s: s.price)
@@ -30,14 +30,14 @@ class DiscountFilter(BaseFilter):
         if not with_min_price.price or not with_max_price.price or with_min_price.price <= 0:
             return None
 
-        # Расчёт падения цены
+        # Calculate the price drop
         percent_drop = 100 * (with_min_price.price - with_max_price.price) / with_min_price.price
         absolute_drop = with_min_price.price - with_max_price.price
 
         if percent_drop <= 0:
-            return None  # цена выросла или не изменилась
+            return None  # price went up or stayed the same
 
-        # Динамический порог в зависимости от цены
+        # Dynamic threshold based on price
         dynamic_threshold = self._dynamic_threshold(with_min_price.price)
 
         if percent_drop >= dynamic_threshold:
@@ -52,7 +52,7 @@ class DiscountFilter(BaseFilter):
         return None
 
     def _dynamic_threshold(self, price: float) -> float:
-        """Регулирует порог скидки в зависимости от стоимости игры."""
+        """Adjusts the discount threshold based on the game's price."""
         if price < C.LOW_PRICE_THRESHOLD:
             return C.LOW_PRICE_DROP_PERCENT
         elif price < C.MID_PRICE_THRESHOLD:

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Generic, TypeVar, AsyncGenerator
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel
 from src.db.mongo import get_database
 from src.config.constants import STATIC_FIELDS, IGNORED_FIELDS
 from src.models import PublishStatus
@@ -56,7 +56,6 @@ class BaseRepository(AbstractRepository, Generic[M]):
         logging.info(f'Db: {db}')
         self._collection = db[collection]
         self._model = model
-        self._adapter = TypeAdapter(model) if model else None
 
     async def mark_published(self, record: BaseSchema, search_field: str = '_id') -> None:
         data = record.model_dump()
@@ -82,13 +81,6 @@ class BaseRepository(AbstractRepository, Generic[M]):
         return (self._model.model_validate(new_record)
                 if self._model else new_record)
 
-    async def add_list_new(self, data: list[dict]):
-        """This method adds a list of new records to the database
-        :param data: a list of dict representing the data to add
-        """
-        if data:
-            await self._collection.insert_many(data)
-
     async def add_or_update(
         self, data: list[dict | BaseModel] | dict | BaseModel, search_field: str = 'id',
         ignore_fields: list[str] = IGNORED_FIELDS, static_fields: list[str] = STATIC_FIELDS,
@@ -112,7 +104,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
         static_fields = static_fields or []
         fields_to_remove = fields_to_remove or []
         changed = set()
-        # игнорируем статичные поля при сравнении тоже
+        # static fields are ignored during comparison as well
         fields_ignored_for_comparison = set(ignore_fields) | set(static_fields)
         data = data if isinstance(data, list) else [data]
 
@@ -122,17 +114,17 @@ class BaseRepository(AbstractRepository, Generic[M]):
         for record in data:
             record = deepcopy(record)
             try:
-                # удалить явно заданные поля
+                # remove explicitly specified fields
                 [record.pop(key, None) for key in fields_to_remove]
 
-                # нормализовать значение поля поиска
+                # normalize the search field value
                 search_value = record.get(search_field)
                 if search_field == '_id' and search_value is not None and not isinstance(search_value, ObjectId):
                     try:
                         search_value = ObjectId(search_value)
                         record[search_field] = search_value
                     except Exception:
-                        # если невалидный ObjectId — оставляем как есть
+                        # invalid ObjectId — leave it as is
                         pass
 
                 if search_field != '_id' and search_value in (None, ''):
@@ -141,18 +133,18 @@ class BaseRepository(AbstractRepository, Generic[M]):
 
                 found = await self._collection.find_one({search_field: search_value})
                 if found:
-                    # подготовка для сравнения (без _id)
+                    # prepare for comparison (without _id)
                     existing_clean = deepcopy(found)
                     existing_clean.pop('_id', None)
 
                     new_clean = deepcopy(record)
                     new_clean.pop('_id', None)
 
-                    # посчитать изменения с учётом игноров и статичных полей
+                    # compute changes accounting for ignored and static fields
                     changes = self._calc_changes(existing_clean, new_clean, fields_ignored_for_comparison)
 
                     if update_all or changes:
-                        # статичные поля не апдейтим даже если отличаются
+                        # do not update static fields even if they differ
                         update_doc = {k: v for k, v in changes.items() if k not in static_fields}
                         if update_doc:
                             update_doc.update(
@@ -167,10 +159,10 @@ class BaseRepository(AbstractRepository, Generic[M]):
                             )
                             changed.add(search_value)
                         else:
-                            # отличия только в статичных/игнорируемых полях — пропускаем
+                            # differences only in static/ignored fields — skip
                             continue
                 else:
-                    # новая запись — вставка как есть
+                    # new record — insert as is
                     tasks.append(self._collection.insert_one(record))
                     changed.add(record.get(search_field))
 
@@ -279,7 +271,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
         """
         try:
             uid = ObjectId(uid)
-        except Exception as e:
+        except Exception:
             pass
         params = {'_id': uid}
         if not show_deleted:
@@ -320,7 +312,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
         if id_field == '_id' and type(uid) is not dict:
             try:
                 uid = ObjectId(uid)
-            except Exception as e:
+            except Exception:
                 pass
         try:
             update_method = self._collection.update_one if not many else self._collection.update_many
@@ -347,7 +339,7 @@ class BaseRepository(AbstractRepository, Generic[M]):
             if type(uid) is str:
                 try:
                     uid = ObjectId(uid)
-                except Exception as e:
+                except Exception:
                     pass
             if not delete_permanently:
                 current_date = datetime.now()
@@ -359,93 +351,6 @@ class BaseRepository(AbstractRepository, Generic[M]):
                     {'_id': uid} if not many and type(uid) in (str, ObjectId) else uid)
         except Exception as e:
             logging.error(f'Cannot delete record: {e}')
-
-    async def delete_duplicated(self, search_parameter: str, date_field: str, soft_delete: bool = True) -> dict:
-        """
-        The method serves to find records by provided field with duplicated values of the field and delete all excessive
-        ones sorted by provided date field, all records with duplicated values and older values of date field will be
-        deleted
-        Args:
-
-        Returns:
-            list: Список _id документов, которые нужно удалить.
-        """
-        try:
-            pipeline = [
-                {
-                '$match': {
-                    "deleted_at": None
-                    }
-                },
-                {
-                    "$group": {
-                        "_id": "$" + search_parameter,  # Группируем по параметру поиска
-                        "docs": {"$push": "$$ROOT"},  # Собираем все документы в массив
-                        "count": {"$sum": 1}  # Считаем количество документов
-                    }
-                },
-                {
-                    "$match": {"count": {"$gt": 1}}  # Оставляем только группы с более чем одним документом
-                },
-                {
-                    "$unwind": "$docs"  # Разворачиваем массив документов для сортировки
-                },
-                {
-                    "$sort": {f"docs.{date_field}": 1}  # Сортируем документы внутри каждой группы
-                },
-                {
-                    "$group": {
-                        "_id": "$_id",  # Сохраняем _id (значение параметра поиска)
-                        "ids_to_delete": {"$push": "$docs._id"},  # собираем _id всех документов в массив
-                        "docs": {"$push": "$docs"}
-                    }
-                },
-                {
-                    "$project": {
-                        "_id": 0,  # Нам не нужен _id группы
-                        "ids_to_delete": {  # Нам нужен новый массив _id для удаления
-                            "$slice": ["$ids_to_delete", 0, {"$subtract": [{"$size": "$ids_to_delete"}, 1]}]
-                        }
-                    }
-                },
-                {
-                    "$unwind": "$ids_to_delete"
-                },
-                {
-                    "$group": {
-                        "_id": None,
-                        "ids_to_delete": {"$push": "$ids_to_delete"}
-                    }
-                },
-                {
-                    "$project": {
-                        "_id": 0,
-                        "ids_to_delete": 1
-                    }
-                }
-            ]
-
-            result = self._collection.aggregate(pipeline)
-            result = [item async for item in result]
-            if result and result[0] and "ids_to_delete" in result[0]:
-                ids_to_delete = result[0]["ids_to_delete"]
-            else:
-                ids_to_delete = []
-
-            await self.delete({'_id': {'$in': ids_to_delete}}, many=True, delete_permanently=not soft_delete)
-            return {'deleted': len(ids_to_delete)}
-
-        except Exception as e:
-            print(f"Произошла ошибка: {e}")
-            return {'deleted': 0}
-
-    async def get_unique_fields(self, field_name: str) -> list[str]:
-        """This method returns a list of unique values of provided field
-        :param field_name: a str representing the name of the field
-        :return: a list of unique values
-        """
-        found = await self._collection.distinct(field_name)
-        return found
 
     async def get_max_value(
         self, field_name: str = 'updated_at',

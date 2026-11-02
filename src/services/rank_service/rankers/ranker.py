@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Iterable
+from typing import Optional
 from src.models.game import GameModel, ReviewResponse, NewsStats, GameSnapshot
 from src.models import IGDBMeta, PopularityMetrics
 from src.config import constants as C
@@ -30,7 +30,6 @@ class GameRanker:
         trend_metrics = self._compute_trend(snapshots)
         volatility = self._compute_volatility(snapshots)
         avg_players = self._compute_avg_players(snapshots)
-        # completeness_factor = min(1.0, len(snapshots) / C.MIN_SNAPSHOTS_REQUIRED)
 
         # ---- 2. IGDB ----
         rating = self._rating_component(metrics)
@@ -47,7 +46,7 @@ class GameRanker:
         recommendations = 0.0
         if getattr(game, "recommendations", None):
             rec_count = game.recommendations or 0
-            # лог-нормализация
+            # log normalization
             recommendations = min(1.0, log1p(rec_count) / C.RECOMMENDATION_LOG_SCALE)
 
         # ---- 5. Recency boost ----
@@ -55,7 +54,7 @@ class GameRanker:
         if game.release_date:
             age_days = (datetime.now() - game.release_date).days
             if age_days < C.RECENT_GAME_AGE_DAYS:
-                # плавное затухание усиления со временем
+                # smooth decay of the boost over time
                 recency_boost = C.RECENCY_BASE_BOOST - (age_days / C.RECENCY_FADE_DIVISOR)
                 recency_boost = clamp(recency_boost, 1.0, C.RECENCY_MAX_BOOST)
 
@@ -93,18 +92,10 @@ class GameRanker:
             vals = [s.current_players for s in snapshots if s.current_players is not None]
             if vals:
                 avg_players = sum(vals) / len(vals)
-                # логарифмическое сглаживание: 0..1 при 0..~50к игроков
+                # logarithmic smoothing: 0..1 for 0..~50k players
                 avg_players = clamp(log1p(avg_players) / log1p(50000), 0.0, 1.0)
 
         return avg_players
-
-    def _get_recent_snapshots(
-        self, snapshots: Iterable[GameSnapshotSchema], n: int
-    ) -> list[GameSnapshotSchema]:
-        snaps = sorted((s for s in snapshots if s is not None), key=lambda s: s.snapshot_time)
-        if not snaps:
-            return []
-        return snaps[-n:]
 
     def _compute_trend(self, snaps: list[GameSnapshotSchema]) -> dict[str, float]:
         """
@@ -196,20 +187,20 @@ class GameRanker:
         if not news:
             return 0.0
 
-        # Чем меньше прошло времени с последней новости, тем лучше
+        # The less time since the last news, the better
         recency_factor = 1.0 - min(1.0, (news.days_since_last_news or 999) / C.NEWS_DECAY_DAYS)
 
-        # Активность за последние 90 дней (до 5 новостей = максимум)
+        # Activity over the last 90 days (up to ~5 news items = max)
         activity_factor = min(1.0, news.total_news_last_90d / C.NEWS_ACTIVITY_NORMALIZER)
 
-        # Усреднение с приоритетом свежести
+        # Weighted average favoring freshness
         return round(0.7 * recency_factor + 0.3 * activity_factor, 3)
 
     def _review_component(self, review: Optional[ReviewResponse]) -> float:
         if not review or not review.ratio or not review.total_reviews:
             return 0.0
 
-        # ratio в диапазоне [0, 1], весим его количеством отзывов
+        # ratio is in [0, 1], weighted by the review count
         volume_factor = min(1.0, log1p(review.total_reviews) / log1p(C.REVIEW_VOLUME_NORMALIZER))
         return review.ratio * volume_factor
 

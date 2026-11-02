@@ -9,8 +9,8 @@ from src.config import constants as C
 
 class RedditDevPostRanker:
     """
-    Ранжирует посты о геймдеве: личные истории, советы, behind-the-scenes,
-    lessons learned, postmortem и т.д.
+    Ranks gamedev posts: personal stories, tips, behind-the-scenes,
+    lessons learned, postmortems, etc.
     """
 
     def _length_penalty(self, text: str) -> float:
@@ -25,12 +25,12 @@ class RedditDevPostRanker:
         if not text:
             return False
         lower = text.lower()
-        # если >2 тех. слов — вероятно changelog
+        # if >2 tech words — likely a changelog
         matches = sum(kw in lower for kw in C.REDDIT_TECH_KEYWORDS)
         return matches >= 2
 
     def _is_story_post(self, text: str) -> bool:
-        """Определяет, является ли пост нарративным/опытным."""
+        """Detects whether the post is narrative/experience-based."""
         if not text:
             return False
         lower = text.lower()
@@ -74,7 +74,7 @@ class RedditDevPostRanker:
         return clamp(base, 0.3, 1.3)
 
     def _storytelling_value(self, cleaned_text: str) -> float:
-        """Оценивает ценность повествования и инсайта."""
+        """Scores the value of storytelling and insight."""
         if not cleaned_text:
             return 0.0
         lower = cleaned_text.lower()
@@ -89,12 +89,12 @@ class RedditDevPostRanker:
             score += 0.1
         return clamp(score, 0.0, 1.0)
 
-    # ------------------- основной метод -------------------
+    # ------------------- main method -------------------
 
     def evaluate(self, post: RedditPost) -> float:
         now = datetime.now()
         age_days = (now - post.created_utc).days if post.created_utc else 9999
-        freshness = clamp(1.0 - age_days / C.REDDIT_MAX_POST_AGE_DAYS, 0.0, 1.0)  # свежесть
+        freshness = clamp(1.0 - age_days / C.REDDIT_MAX_POST_AGE_DAYS, 0.0, 1.0)  # freshness
 
         source_weight = self._subreddit_quality(post)
         engagement = self._engagement_score(post)
@@ -106,7 +106,7 @@ class RedditDevPostRanker:
         is_tech = self._is_technical_post(cleaned)
         is_promo = self._contains_promo_signals(cleaned, post.link_flair_text)
 
-        # комбинированный score
+        # combined score
         base = (
             C.REDDIT_DEV_WEIGHT_FRESHNESS * freshness +
             C.REDDIT_DEV_WEIGHT_SOURCE * source_weight +

@@ -23,20 +23,20 @@ class NewsStats(BaseModel):
 
 
 class SteamNewsItem(BaseModel):
-    gid: str = Field(..., description="Уникальный идентификатор новости в Steam")
-    title: str = Field(..., description="Заголовок новости")
-    url: Optional[str] = Field(None, description="URL новости (часто ведет на внешний ресурс)")
-    is_external_url: bool = Field(False, description="Флаг, указывает внешний ли источник")
-    author: Optional[str] = Field(None, description="Автор публикации")
-    contents: Optional[str] = Field(None, description="HTML содержимое новости")
-    feedlabel: Optional[str] = Field(None, description="Отображаемое название источника (например, PCGamesN)")
-    feedname: Optional[str] = Field(None, description="Системное имя фида")
-    feed_type: Optional[int] = Field(None, description="Тип фида (0 = обычный, 1 = RSS и т.д.)")
-    appid: int = Field(..., description="Steam AppID игры, к которой относится новость")
-    date: datetime = Field(..., description="Дата публикации в формате datetime")
-    score: Optional[float] = Field(None, description="Оценка новости")
-    last_ranked_at: Optional[datetime] = Field(None, description="Дата последнего ранжирования")
-    relevance: Optional[float] = Field(None, description="Релевантность новости")
+    gid: str = Field(..., description="Unique news item identifier in Steam")
+    title: str = Field(..., description="News title")
+    url: Optional[str] = Field(None, description="News URL (often leads to an external resource)")
+    is_external_url: bool = Field(False, description="Flag indicating whether the source is external")
+    author: Optional[str] = Field(None, description="Publication author")
+    contents: Optional[str] = Field(None, description="HTML content of the news item")
+    feedlabel: Optional[str] = Field(None, description="Display name of the source (e.g. PCGamesN)")
+    feedname: Optional[str] = Field(None, description="System feed name")
+    feed_type: Optional[int] = Field(None, description="Feed type (0 = regular, 1 = RSS, etc.)")
+    appid: int = Field(..., description="Steam AppID of the game the news refers to")
+    date: datetime = Field(..., description="Publication date as datetime")
+    score: Optional[float] = Field(None, description="News score")
+    last_ranked_at: Optional[datetime] = Field(None, description="Date of last ranking")
+    relevance: Optional[float] = Field(None, description="News relevance")
 
 
 class PriceInfo(BaseModel):
@@ -147,10 +147,10 @@ class ReviewResponse(BaseModel):
     review_score: Optional[int]
     ratio: Optional[float]
     reviews: List[ReviewItem]
-    cursor: Optional[str]  # если пагинация
+    cursor: Optional[str]  # for pagination
 
 
-# Возможная расширенная модель игры, объединяющая с твоим GameModel:
+# Possible extended game model that can be merged with GameModel:
 class SteamExtendedInfo(BaseModel):
     steam_appid: int
     current_players: Optional[int]

@@ -1,5 +1,4 @@
 from typing import Optional
-from datetime import datetime, UTC
 from pydantic import BaseModel
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -50,7 +49,3 @@ class Submission(BaseModel):
     thumbnail_width: Optional[int]
     preview: Optional[dict]
     media: Optional[dict]
-
-    @property
-    def created(self):
-        return datetime.fromtimestamp(self.created_utc, tz=UTC)

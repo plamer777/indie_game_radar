@@ -13,7 +13,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     curl \
-    redis \
     && rm -rf /var/lib/apt/lists/*
 
 # We'll use pip here - adapt if you use poetry

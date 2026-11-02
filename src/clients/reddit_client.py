@@ -20,7 +20,7 @@ class RedditClient:
         self._log = get_logger().bind(client="reddit")
 
     def _ensure_client(self) -> Reddit:
-        """Создает Reddit объект только когда это действительно нужно."""
+        """Creates the Reddit object only when it is actually needed."""
         if self._reddit is None:
             self._reddit = Reddit(
                 client_id=self._client_id,
@@ -37,14 +37,14 @@ class RedditClient:
         limit: int | None = None,
     ) -> AsyncGenerator[Submission, None]:
         """
-        Ищет посты, связанные с игрой: по названию и/или по Steam AppID.
-        Можно ограничить списком сабреддитов.
+        Searches for posts related to a game by name and/or Steam AppID.
+        Can be restricted to a list of subreddits.
         """
         log = self._log.bind(query=query)
         log.info("search reddit posts")
         self._ensure_client()
 
-        # если указаны сабреддиты — объединяем через +
+        # if subreddits are specified — join them with +
         subreddits = "all"
         if subreddit_list:
             subreddits = "+".join(subreddit_list)

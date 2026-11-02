@@ -1,5 +1,6 @@
 asyncpraw==7.8.1
 backports.tarfile==1.2.0
+beautifulsoup4==4.14.2
 h2==4.3.0
 importlib-metadata==8.0.0
 inflect==7.3.1
@@ -17,11 +18,8 @@ praw==7.8.1
 pydantic-settings==2.6.0
 pytest-asyncio==0.24.0
 python-steam-api==2.2.1
-qrcode==8.2
 rapidfuzz==3.14.3
-redis==5.0.8
 structlog==24.4.0
 telethon==1.42.0
 tomli==2.0.1
 transformers==4.57.3
-yt-dlp==2025.11.12

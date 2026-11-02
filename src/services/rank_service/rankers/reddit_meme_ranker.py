@@ -8,12 +8,12 @@ from src.config import constants as C
 
 
 class RedditMemeRanker:
-    """Ранкер для игровых мемов с использованием констант."""
+    """Ranker for gaming memes driven by constants."""
 
     def _engagement_score(self, post: RedditPost) -> float:
         """
-        Рассчитывает базовую вовлечённость по апвоутам и комментам.
-        Использует логарифмическое сглаживание и мягкий cap.
+        Computes base engagement from upvotes and comments.
+        Uses logarithmic smoothing and a soft cap.
         """
         ups = float(min(post.ups or post.score or 0, C.REDDIT_MEME_RANKER_MAX_UPS))
         comments = float(min(post.num_comments or 0, C.REDDIT_MEME_RANKER_MAX_COMMENTS))
@@ -27,8 +27,8 @@ class RedditMemeRanker:
 
     def _freshness_decay(self, post: RedditPost) -> float:
         """
-        Возвращает коэффициент затухания по времени.
-        Для мемов слабее, чем для новостей — старые мемы всё ещё ценны.
+        Returns the time-decay coefficient.
+        Weaker for memes than for news — old memes are still valuable.
         """
         if not post.created_utc:
             return 1.0
@@ -41,7 +41,7 @@ class RedditMemeRanker:
 
     def evaluate(self, post: RedditPost) -> float:
         """
-        Возвращает финальный рейтинг мема (0..1)
+        Returns the final meme score (0..1)
         """
         engagement = self._engagement_score(post)
         freshness = self._freshness_decay(post)

@@ -4,7 +4,6 @@ import re
 # ---------------------------------------------------------------------------------------------------------------------
 # Base client settings
 BASE_CLIENT_MIN_INCREASE_DIFF_SEC = 10
-BASE_CLIENT_INCREASE_STEP = 0.1
 HTTP_TIMEOUT_SECONDS = 15.0
 HTTP_MAX_RETRIES = 3
 HTTP_RETRY_BACKOFF_BASE = 0.5
@@ -24,8 +23,6 @@ FILTER_GENRE_BLACKLIST = [
     "tutorial",
 ]
 FILTER_REQUIRE_HEADER_IMAGE = True
-FILTER_MAX_YEARS_SINCE_RELEASE = 1  # allow older only if score very high
-FILTER_MIN_SCORE_FOR_OLD_TITLES = 0.85
 FILTER_MAX_PRICE = 40.0  # USD-equivalent heuristic
 SCORE_PUBLISH_THRESHOLD = 0.35
 DEFAULT_DUPLICATION_THRESHOLD = 0.9
@@ -40,20 +37,13 @@ TOO_MANY_REQUESTS_DELAY = 90
 # Data model constraints
 CURRENCY_CODE_LEN = 3
 PERCENT_MAX = 100
-RATIO_MIN = 0.0
-RATIO_MAX = 1.0
 ZERO = 0
 MIN_STEAM_APPID = 1
 # ---------------------------------------------------------------------------------------------------------------------
-# Mongo index directions
-ASC = 1
-DESC = -1
 # ---------------------------------------------------------------------------------------------------------------------
 # Repository defaults
 MONGO_DB = "indie_game_radar"
 
-UNPUBLISHED_QUERY_LIMIT_DEFAULT = 100
-LOOKUP_LIMIT_ONE = 1
 GAMES_COLLECTION = "games"
 LEADERBOARD_COLLECTION = "leaderboards"
 RANKED_GAMES_COLLECTION = "ranked_games"
@@ -74,18 +64,15 @@ IGNORED_FIELDS = ['updated_at']
 # ---------------------------------------------------------------------------------------------------------------------
 # Telegram
 DEFAULT_TELEGRAM_CHANNEL = "telegram"
-SUMMARY_MAX_LEN = 500
-WEBSITES_MAX = 2
-PRICE_FREE_LABEL = "Free to Play"
-PRICE_UNKNOWN_LABEL = "Unknown price"
-WEBSITE_SEPARATOR = " | "
-SCORE_DECIMALS = 2
-TOP_GAMES_TO_PUBLISH = 1
-TOP_NEWS_TO_PUBLISH = 1
+# ---------------------------------------------------------------------------------------------------------------------
+# Tumblr
+TUMBLR_CONSUMER_KEY = ""
+TUMBLR_CONSUMER_SECRET = ""
+TUMBLR_OAUTH_TOKEN = ""
+TUMBLR_OAUTH_TOKEN_SECRET = ""
+TUMBLR_BLOG_IDENTIFIER = ""  # e.g., "blogname.tumblr.com"
 TELETHON_SESSION = 'forwarder_prod_session'
 # ---------------------------------------------------------------------------------------------------------------------
-# Redis settings
-REDIS_URL = "redis://localhost:6379/0"
 
 # ---------------------------------------------------------------------------------------------------------------------
 # IGDB queries
@@ -104,14 +91,13 @@ REVIEW_DAY_RANGE = 30
 NEWS_COUNT = 20
 
 SECONDS_IN_DAY = 86400
-SECONDS_IN_HOUR = 3600
 SECONDS_IN_MINUTE = 60
 
-# Интервалы для анализа новостей (в днях)
+# News analysis windows (in days)
 NEWS_WINDOW_30D = 30
 NEWS_WINDOW_90D = 90
 
-# Округление числовых метрик
+# Rounding precision for numeric metrics
 ROUND_PRECISION = 1
 # ---------------------------------------------------------------------------------------------------------------------
 # Speedrun.com
@@ -129,16 +115,15 @@ DIRECT_REDDIT_CLIENT_MAX_DELAY = 1.9
 DIRECT_REDDIT_CLIENT_TIMEOUT = 15.0
 DIRECT_REDDIT_CLIENT_MAX_RETRIES = 5
 DIRECT_REDDIT_CLIENT_FUZZ_THRESHOLD = 75
-DIRECT_REDDIT_CLIENT_CACHE_CLEANER_INTERVAL = SECONDS_IN_MINUTE * 10
-# Настройки по умолчанию — можешь изменить или прокинуть из settings
+# Default settings — adjust as needed or pass through from settings
 DIRECT_REDDIT_CLIENT_DEFAULT_HEADERS = {
     "Accept": "application/json, text/javascript, */*; q=0.01",
     "Accept-Language": "en-US,en;q=0.9",
-    # User-Agent будет устанавливаться динамически, этот заголовок здесь для fallback
+    # User-Agent is set dynamically; this header is a fallback
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)",
 }
 
-# Небольшой набор User-Agent'ов — дополни по вкусу
+# A small pool of User-Agents — extend as needed
 DIRECT_REDDIT_CLIENT_DEFAULT_UA_POOL = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
@@ -146,42 +131,41 @@ DIRECT_REDDIT_CLIENT_DEFAULT_UA_POOL = [
 ]
 
 GAMEDEV_SUBREDDITS = [
-    # Общие по разработке
+    # General game development
     "gamedev", "indiedev", "gameDevClassifieds", "IndieGaming", "IndieDev",
     "GameDesign", "GameDevelopment", "Unity3D", "UnrealEngine", "Godot", "SoloDevelopment", "DestroyMyGame",
     "indiegames", "IndieGameDevs", "DevBlogs"
-    # Арт, визуалы, музыка
+    # Art, visuals, music
     "GameAudio", "PixelArt", "IndieArt", "GameAssets", "3Dmodeling",
-    # Продвижение и маркетинг
+    # Promotion and marketing
     "IndieDevMarket", "IndieDevFeedback", "PlayMyGame", "ScreenshotSaturday",
-    # Технические и экспериментальные
+    # Technical and experimental
     "GamePhysics", "GameAI", "ProceduralGeneration", "TechArt",
-    # Продакшн и релизы
+    # Production and releases
     "DevBlogs", "GameLaunch", "GameUpdates", "IndieDevShowcase",
-    # Обсуждения и мета
+    # Discussions and meta
     "GameIndustry", "GameDevHumor", "LearnGameDev",
 ]
 
 GAME_MEME_SUBREDDITS = [
-    "gamememes",                # ещё один крупный саб по игровым мемам
-    "pcmasterrace",             # мемы, юмор про ПК-геймеров и платформу
-    "justgamedevthings",        # мемы/юмор про разработку игр (геймдев) :contentReference[oaicite:0]{index=0}
-    "IndieDev",                 # инди-разработка, там иногда мемы появляются :contentReference[oaicite:1]{index=1}
-    "gamedevmemes",             # нишевой саб, мемы про разработку (может быть малочисленным)
-    "gamingcirclejerk",         # саркастические/ироничные игровые мемы :contentReference[oaicite:2]{index=2}
-    "gametheorymemes",          # мемы про гейм/фильм-теорию, можно перекрестно использовать :contentReference[oaicite:3]{index=3}
-    "LeagueOfMemes",            # пример сабреддита, посвященный конкретной игровой серии (для разнообразия) :contentReference[oaicite:4]{index=4}
-    "ProgrammerHumor",          # разработчики/программирование: контент может пересекаться с геймдевом :contentReference[oaicite:5]{index=5}
+    "gamememes",                # another large gaming meme subreddit
+    "pcmasterrace",             # memes and humor about PC gamers and the platform
+    "justgamedevthings",        # memes/humor about game development
+    "IndieDev",                 # indie development, occasional memes
+    "gamedevmemes",             # niche dev meme subreddit (may be small)
+    "gamingcirclejerk",         # sarcastic/ironic gaming memes
+    "gametheorymemes",          # game/film theory memes, reusable cross-content
+    "LeagueOfMemes",            # example of a game-specific subreddit (for variety)
+    "ProgrammerHumor",          # developer/programming humor that may overlap with gamedev
 ]
 
 REDDIT_STEAM_URL_RE = re.compile(r"https?://store\.steampowered\.com/app/(\d+)", re.IGNORECASE)
-DEFAULT_GAME_RELATED_POSTS_LIMIT = 20
 DEFAULT_GAME_DEV_STORY_POSTS_LIMIT = 1000
 DEFAULT_GAME_MEME_POSTS_LIMIT = 100
 
 GAME_MEME_OVERSAMPLE_FACTOR = 10
 GAMEDEV_DISCUSSION_QUERIES = [
-    # 🎮 Общие обсуждения разработки игр
+    # 🎮 General game dev discussions
     "game development",
     "solo dev",
     "indie dev",
@@ -198,7 +182,7 @@ GAMEDEV_DISCUSSION_QUERIES = [
     "game dev looks like",
     "we're running"
 
-    # 💡 Опыт, истории, фейлы, инсайты
+    # 💡 Experience, stories, fails, insights
     "my game dev journey",
     "what I learned from making a game",
     "mistakes I made developing a game",
@@ -217,7 +201,7 @@ GAMEDEV_DISCUSSION_QUERIES = [
     "my first solo dev game",
     "passion for game dev"
 
-    # 🧠 Технические / производственные темы
+    # 🧠 Technical / production topics
     "game engine choice",
     "unity vs unreal",
     "game optimization tips",
@@ -226,7 +210,7 @@ GAMEDEV_DISCUSSION_QUERIES = [
     "making pixel art game",
     "creating game mechanics",
 
-    # 💰 Маркетинг, релизы, сообщество
+    # 💰 Marketing, releases, community
     "indie game marketing",
     "promoting my game",
     "launching on Steam",
@@ -238,16 +222,9 @@ GAMEDEV_DISCUSSION_QUERIES = [
 ]
 # ---------------------------------------------------------------------------------------------------------------------
 # Orchestrator
-ORCH_FETCH_GAME_CONCURRENCY = 10
 ORCH_FETCH_META_CONCURRENCY = 2
-ORCH_SCORE_CONCURRENCY = 20
-ORCH_CANDIDATES_LIMIT_DEFAULT = 200
-ORCH_NEWS_RANKING_BATCH_SIZE = 50
 ORCH_RANKING_INTERVAL = SECONDS_IN_MINUTE * 10
 # ---------------------------------------------------------------------------------------------------------------------
-# Scheduler
-SCHED_MIN_SLEEP_SECONDS = 1
-SCHED_FIXED_HOURS_DEFAULT = [8, 12, 16, 20, 23]
 # ---------------------------------------------------------------------------------------------------------------------
 # Harvested settings
 HARVESTER_SNAPSHOT_MIN_GAME_SCORE = 0.2
@@ -271,39 +248,37 @@ NEWS_DECAY_DAYS = 60
 NEWS_ACTIVITY_NORMALIZER = 5
 
 
-
 # Weights for scoring games
-# IGDB часть
+# IGDB part
 WEIGHT_RATING = 0.10
 WEIGHT_POPULARITY = 0.10
 WEIGHT_RECENCY = 0.05
 
-# Пользовательские сигналы (усиленные)
+# User signals (boosted)
 WEIGHT_USER_SENTIMENT = 0.35  # (reviews + recommendations)
 WEIGHT_TREND = 0.10
 WEIGHT_ACTIVITY = 0.10
 
-# Контекст
+# Context
 WEIGHT_PRICE_ATTRACTIVENESS = 0.05
 WEIGHT_DISCOUNT = 0.03
 WEIGHT_NEWS = 0.02
 
-# Прочие параметры
+# Other parameters
 VOLATILITY_MAX_PENALTY = 0.12
 VOLATILITY_SENSITIVITY = 0.5
-MIN_SNAPSHOTS_REQUIRED = 5
 
 PRICE_BUCKETS_USD = [5, 10, 15, 25]
 PRICE_BUCKET_SCORES = [1.0, 0.85, 0.75, 0.5, 0.3]
 
 # === Recommendations ===
-RECOMMENDATION_LOG_SCALE = 10.0  # делитель при лог-нормализации
+RECOMMENDATION_LOG_SCALE = 10.0  # divisor for log normalization
 
 # === Recency boost ===
-RECENT_GAME_AGE_DAYS = 180       # игра считается новой 6 месяцев
-RECENCY_BASE_BOOST = 1.2         # максимальный буст в начале
-RECENCY_FADE_DIVISOR = 900.0     # скорость затухания
-RECENCY_MAX_BOOST = 1.2          # верхний предел буста
+RECENT_GAME_AGE_DAYS = 180       # a game is considered new for 6 months
+RECENCY_BASE_BOOST = 1.2         # maximum initial boost
+RECENCY_FADE_DIVISOR = 900.0     # decay rate
+RECENCY_MAX_BOOST = 1.2          # boost upper bound
 
 # === Aggregation (review vs recommendations) ===
 REVIEW_WEIGHT = 0.6
@@ -314,59 +289,59 @@ IGDB_FULL_DATA_FACTOR = 1.0
 IGDB_PARTIAL_DATA_FACTOR = 0.5
 
 # News ranker
-# --- Общие настройки ---
-MAX_NEWS_AGE_DAYS = 7  # после этого считается устаревшей
+# --- General settings ---
+MAX_NEWS_AGE_DAYS = 7  # older news is considered stale
 
-# --- Веса компонентов ---
+# --- Component weights ---
 WEIGHT_FRESHNESS = 0.30
 WEIGHT_SOURCE = 0.20
 WEIGHT_CONTENT_RICHNESS = 0.25
 WEIGHT_GAME_QUALITY = 0.25
 
-# --- Усиление для новинок ---
+# --- Boost for new releases ---
 RECENCY_BOOST_MAX = 1.2
 RECENCY_BOOST_DECAY_DAYS = 180
 
-# --- Порог насыщенности контента ---
+# --- Content richness threshold ---
 MAX_CONTENT_LENGTH = 1500
 
-# --- Общие лимиты ---
+# --- General limits ---
 MIN_NEWS_CONTENT_LENGTH = 300
 
-# --- Источники ---
+# --- Sources ---
 SOURCE_WEIGHT_EXTERNAL = 1.0
 SOURCE_WEIGHT_INTERNAL = 0.75
 SOURCE_WEIGHT_COMMUNITY = 0.85
 
-# --- Медиа бонус ---
+# --- Media bonus ---
 MEDIA_BONUS = 0.1
 
-# --- Инфоценность ---
+# --- Info value ---
 SHORT_TEXT_THRESHOLD = 600
 INFO_VALUE_GAME_QUALITY_THRESHOLD = 0.4
 GAME_QUALITY_REDUCTION_FACTOR = 0.5
 
 # ----------------------------------------------------------------------
-# 🧩 Технические апдейты / changelog-и
+# 🧩 Technical updates / changelogs
 # ----------------------------------------------------------------------
 
-# Минимальное количество маркеров списков ([list], [*], <li>) для триггера
+# Minimum number of list markers ([list], [*], <li>) to trigger
 TECH_LIST_TOKEN_THRESHOLD = 2
 
-# Доля строк, которые выглядят как пункты списка ("-", "*", короткие <10 слов)
+# Ratio of lines that look like list items ("-", "*", short <10 words)
 TECH_LIST_LINE_RATIO = 0.25
 
-# Комбинированная плотность (чем больше, тем вероятнее changelog)
+# Combined density (higher means more likely a changelog)
 TECH_LIST_DENSITY_THRESHOLD = 1.3
 
-# Коэффициент ослабления контентного веса для changelog-постов
-TECHNICAL_POST_MULTIPLIER = 0.35  # было бы 1.0 — оставляем 35% от исходного
+# Content weight reduction factor for changelog posts
+TECHNICAL_POST_MULTIPLIER = 0.35  # would be 1.0 — we keep 35% of the original
 
-# Дополнительное ослабление влияния рейтинга игры
+# Additional reduction of game rating influence
 GAME_QUALITY_TECH_MULTIPLIER = 0.5
 
 # ----------------------------------------------------------------------
-# 🔑 Ключевые слова
+# 🔑 Keywords
 # ----------------------------------------------------------------------
 
 HIGH_VALUE_KEYWORDS = [
@@ -391,50 +366,29 @@ DEVLOG_KEYWORDS = ["devlog", "patch notes", "bug fix"]
 # ---------------------------------------------------------------------------------------------------------------------
 # Reddit Ranker
 # ==========================================================
-# ⚙️ Основные веса для итогового Reddit-рейтинга
+# ⚙️ Core weights for the final Reddit score
 # ==========================================================
 
-REDDIT_WEIGHT_FRESHNESS = 0.25          # свежесть поста
-REDDIT_WEIGHT_SOURCE = 0.15             # качество сабреддита / источника
-REDDIT_WEIGHT_ENGAGEMENT = 0.35         # вовлеченность (апвоуты, комменты, награды)
-REDDIT_WEIGHT_CONTENT_RICHNESS = 0.15   # информативность и насыщенность контента
-REDDIT_WEIGHT_DEV_SIGNAL = 0.05         # наличие признаков developer-origin поста
-REDDIT_WEIGHT_GAME_QUALITY = 0.05       # качество игры, к которой относится пост
 
 # ==========================================================
-# 📅 Время и свежесть
+# 📅 Time and freshness
 # ==========================================================
 
-REDDIT_MAX_POST_AGE_DAYS = 14           # посты старше 14 дней почти не учитываются
-REDDIT_RECENCY_BOOST_MAX = 1.3          # максимум бонуса за новизну игры
-REDDIT_RECENCY_BOOST_DECAY_DAYS = 7     # за сколько дней бонус спадает
+REDDIT_MAX_POST_AGE_DAYS = 14           # posts older than 14 days are barely counted
 
 # ==========================================================
-# 🔼 Вовлеченность: апвоуты, комменты, награды и медиа
+# 🔼 Engagement: upvotes, comments, awards, and media
 # ==========================================================
 
-REDDIT_UPVOTE_WEIGHT = 1.0              # базовый вес апвоутов
-REDDIT_DOWNVOTE_WEIGHT = 0.5           # штраф за дизлайки
-REDDIT_COMMENT_WEIGHT = 1.5             # вес комментариев
-REDDIT_GAME_DEV_STORY_COMMENT_WEIGHT = 2.0            # вес комментариев
-REDDIT_AWARD_WEIGHT = 10.0              # вес за каждую Reddit-награду
-REDDIT_CROSSPOST_WEIGHT = 2.0           # вес за кросспосты (вирусность)
-REDDIT_MEDIA_WEIGHT = 15.0              # бонус за наличие изображения или видео
+REDDIT_GAME_DEV_STORY_COMMENT_WEIGHT = 2.0            # comment weight
+REDDIT_AWARD_WEIGHT = 10.0              # weight per Reddit award
+REDDIT_MEDIA_WEIGHT = 15.0              # bonus for having an image or video
 
 # ==========================================================
-# 🧠 Контент и информативность
+# 🧠 Content and informativeness
 # ==========================================================
 
-REDDIT_MAX_CONTENT_LENGTH = 3000        # нормализация длины текста
-REDDIT_MIN_CONTENT_LENGTH = 300         # минимальная длина для нормального скоринга
-REDDIT_GAME_DEV_STORY_MIN_CONTENT_LENGTH = 1000         # минимальная длина для нормального скоринга
-REDDIT_MEDIA_BONUS = 0.15               # добавка к content_richness при наличии медиа
-REDDIT_MEDIA_INFO_BONUS = 0.10          # добавка к info_value за медиа
-REDDIT_TECHNICAL_POST_MULTIPLIER = 1.2  # бонус для тех. контента (patch notes и т.п.)
-REDDIT_LOW_VALUE_MULTIPLIER = 0.6       # штраф для "мусорных" постов
-REDDIT_GAME_QUALITY_REDUCTION_FACTOR = 0.8  # снижение влияния game_quality при слабом info_value
-REDDIT_GAME_QUALITY_TECH_MULTIPLIER = 1.1   # усиление game_quality при техничных постах
-REDDIT_INFO_VALUE_GAME_QUALITY_THRESHOLD = 0.4  # порог низкого инфо-контента
+REDDIT_GAME_DEV_STORY_MIN_CONTENT_LENGTH = 1000         # minimum length for normal scoring
 
 REDDIT_DEV_WEIGHT_FRESHNESS = 0.2
 REDDIT_DEV_WEIGHT_SOURCE = 0.2
@@ -446,23 +400,9 @@ REDDIT_DEV_PROMO_PENALTY = 0.5
 
 REDDIT_DEV_LENGTH_BASE = 0.7
 REDDIT_DEV_LENGTH_SCALE = 0.3
-# ==========================================================
-# 🧩 Subreddit / источник
-# ==========================================================
-
-REDDIT_SUBREDDIT_HIGH_WEIGHT = 1.0      # известные dev-сабреддиты
-REDDIT_SUBREDDIT_DEFAULT_WEIGHT = 0.7   # обычные сабреддиты
 
 # ==========================================================
-# 🧾 Детекция changelog / технических постов
-# ==========================================================
-
-REDDIT_TECH_LIST_TOKEN_THRESHOLD = 3
-REDDIT_TECH_LIST_LINE_RATIO = 0.25
-REDDIT_TECH_LIST_DENSITY_THRESHOLD = 0.5
-
-# ==========================================================
-# 🧠 Ключевые слова (поиск смысла и типа контента)
+# 🧠 Keywords (content meaning and type detection)
 # ==========================================================
 
 REDDIT_GAME_DEV_STORY_PATTERNS = [
@@ -470,28 +410,6 @@ REDDIT_GAME_DEV_STORY_PATTERNS = [
     "making of", "our journey", "postmortem", "we decided to", "we built",
     "my first game", "from idea to", "what went wrong", "our experience",
     "indie dev story", "we learned", "mistakes", "success", "failure"
-]
-
-REDDIT_DEV_FLAIR_KEYWORDS = [
-    "dev", "developer", "progress", "update", "devlog", "patch", "release", "prototype"
-]
-
-REDDIT_DEVLOG_KEYWORDS = [
-    "devlog", "development", "update", "patch", "progress", "prototype", "build", "changelog",
-    "release notes", "new feature", "mechanic", "alpha", "beta", "milestone"
-]
-
-REDDIT_HIGH_VALUE_KEYWORDS = [
-    "update", "progress", "feature", "release", "demo", "mechanic", "new level", "alpha", "beta",
-    "devlog", "gameplay", "build", "patch notes", "visual overhaul"
-]
-
-REDDIT_MEDIUM_VALUE_KEYWORDS = [
-    "concept", "design", "story", "balance", "performance", "optimization", "feedback"
-]
-
-REDDIT_LOW_VALUE_KEYWORDS = [
-    "meme", "rant", "help", "question", "giveaway", "promotion"
 ]
 
 REDDIT_TECH_KEYWORDS = [
@@ -502,24 +420,16 @@ REDDIT_HIGH_QUALITY_SUBREDDITS = [
     "gamedev", "indiedev", "gamedevelopment", "godot", "unity3d", "unrealengine", "indiegaming", "indiedevfeedback"
 ]
 
-REDDIT_HIGH_VALUE_DOMAINS = ["store.steampowered.com", "itch.io", "github.com", "rawg.io", "self.gamedev"]
-
-# ==========================================================
-# 🔒 Универсальные границы
-# ==========================================================
-
-REDDIT_CLAMP_MIN = 0.0
-REDDIT_CLAMP_MAX = 1.0
 
 # ---------------------------------------------------------------------------------------------------------------------
 # --- Reddit Meme Ranker ---
-REDDIT_MEME_RANKER_UPS_WEIGHT = 0.7              # вес апвоутов в общем скоре
-REDDIT_MEME_RANKER_COMMENTS_WEIGHT = 0.3         # вес комментариев в общем скоре
-REDDIT_MEME_RANKER_ENGAGEMENT_NORM = 10.0        # нормализация логарифмической вовлечённости
-REDDIT_MEME_RANKER_HALFLIFE_DAYS = 30.0          # "период полураспада" свежести мема
-REDDIT_MEME_RANKER_MIN_DECAY = 0.3               # минимальное значение коэффициента свежести
-REDDIT_MEME_RANKER_MAX_UPS = 50000               # верхний предел апвоутов (для лог-нормализации)
-REDDIT_MEME_RANKER_MAX_COMMENTS = 2000           # верхний предел комментариев (для лог-нормализации)
+REDDIT_MEME_RANKER_UPS_WEIGHT = 0.7              # upvote weight in the total score
+REDDIT_MEME_RANKER_COMMENTS_WEIGHT = 0.3         # comment weight in the total score
+REDDIT_MEME_RANKER_ENGAGEMENT_NORM = 10.0        # log engagement normalization
+REDDIT_MEME_RANKER_HALFLIFE_DAYS = 30.0          # meme freshness "half-life"
+REDDIT_MEME_RANKER_MIN_DECAY = 0.3               # minimum freshness coefficient
+REDDIT_MEME_RANKER_MAX_UPS = 50000               # upvote upper bound (for log normalization)
+REDDIT_MEME_RANKER_MAX_COMMENTS = 2000           # comment upper bound (for log normalization)
 # ---------------------------------------------------------------------------------------------------------------------
 # Reviews filter
 REVIEWS_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 365
@@ -574,20 +484,19 @@ Text: {text}
 # GameFilter tuning
 PRICE_CAP_RELAX_SCORE_DELTA = 0.15  # allow higher price if score exceeds threshold by this delta
 PRICE_CAP_STRICT_FACTOR = 0.8       # strict cap factor when score is near threshold
-IGDB_FLOOR_RELAX_DELTA = 0.2        # relax IGDB floors if score exceeds threshold by this delta
 GAME_FILTER_RATING_MIN = 0.3
 GAME_FILTER_RELEASE_DATE_DELTA_DAYS = 180
 
 
 # Discount filter
-LOW_PRICE_THRESHOLD = 10.0        # игры дешевле $10
-MID_PRICE_THRESHOLD = 30.0        # игры дешевле $30
-HIGH_PRICE_THRESHOLD = 60.0       # игры дешевле $60
+LOW_PRICE_THRESHOLD = 10.0        # games cheaper than $10
+MID_PRICE_THRESHOLD = 30.0        # games cheaper than $30
+HIGH_PRICE_THRESHOLD = 60.0       # games cheaper than $60
 
-LOW_PRICE_DROP_PERCENT = 20.0     # требуемая скидка для дешёвых игр
-MID_PRICE_DROP_PERCENT = 15.0     # требуемая скидка для средних игр
-HIGH_PRICE_DROP_PERCENT = 10.0    # требуемая скидка для дорогих игр
-PREMIUM_PRICE_DROP_PERCENT = 5.0  # требуемая скидка для премиум-игр
+LOW_PRICE_DROP_PERCENT = 20.0     # required discount for cheap games
+MID_PRICE_DROP_PERCENT = 15.0     # required discount for mid-priced games
+HIGH_PRICE_DROP_PERCENT = 10.0    # required discount for expensive games
+PREMIUM_PRICE_DROP_PERCENT = 5.0  # required discount for premium games
 
 DISCOUNT_FILTER_DAYS_LIMIT = 10
 DISCOUNT_PUBLICATION_DAYS_LIMIT = 30
@@ -600,9 +509,8 @@ REDDIT_FILTER_BAD_FLAIRS = [
     "tutorial", "showcase", "free", "promo", "giveaway"
 ]
 
-REDDIT_FILTER_MIN_CONTENT_LENGTH = 80          # минимальная длина текста поста
-REDDIT_FILTER_MIN_RANK_SCORE = 0.5             # минимальный рейтинг для публикации
-REDDIT_FILTER_SIMILARITY_THRESHOLD = 0.65      # минимальная семантическая близость к игре
+REDDIT_FILTER_MIN_CONTENT_LENGTH = 80          # minimum post text length
+REDDIT_FILTER_MIN_RANK_SCORE = 0.5             # minimum score required to publish
 REDDIT_FILTER_TIME_WINDOW_HOURS = 168
 REDDIT_FILTER_GAME_RELEASE_DATE_DELTA_DAYS = 180
 REDDIT_FILTER_GAME_RATING_MIN = 0.3
@@ -646,7 +554,6 @@ REDDIT_MEME_FILTER_MIN_SCORE = 0.6
 REDDIT_DEV_FILTER_TIME_WINDOW_DAYS = 14
 REDDIT_DEV_FILTER_MIN_RANK_SCORE = 0.5
 REDDIT_DEV_FILTER_MIN_CONTENT_LENGTH = 400
-REDDIT_DEV_FILTER_SIMILARITY_THRESHOLD = 0.75
 REDDIT_DEV_FILTER_EMBEDDING_MODEL = "text-embedding-3-small"
 REDDIT_DEV_FILTER_GPT_MODEL = "gpt-4o-mini"
 REDDIT_DEV_FILTER_PROMPT_TEMPLATE = """
@@ -688,7 +595,7 @@ TIME_WINDOWS = {
     "evening": (18, 22),  # 18:00 - 22:00
 }
 
-# Базовые приоритеты по времени суток
+# Base priorities by time of day
 TIME_PRIORITIES = {
     "morning": {
         "news": 0.1, "reddit_posts": 0.35, "games": 0.0, "discounts": 0.15, "reddit_memes": 0.4, "reviews": 0.0,
@@ -848,8 +755,8 @@ TG_ALLOWED_TAGS = {
     "span", "tg-spoiler",
 }
 
-# Теги-синонимы, которые Telegram НЕ поддерживает напрямую,
-# но они полностью эквивалентны разрешённым.
+# Synonym tags that Telegram does NOT support directly
+# but that are fully equivalent to the allowed ones.
 TG_TAG_MAPPING = {
     "strong": "b",
     "em": "i",
@@ -858,11 +765,11 @@ TG_TAG_MAPPING = {
     "del": "s",
 }
 
-# Разрешённые атрибуты
+# Allowed attributes
 TG_ALLOWED_ATTRS = {
     "a": {"href"},
-    "span": {"class"},  # только class="tg-spoiler"
+    "span": {"class"},  # only class="tg-spoiler"
     "code": {"class"},  # class="language-xxx"
-    "pre": {"language"},  # используется telegram
+    "pre": {"language"},  # used by Telegram
     "tg-spoiler": set(),
 }

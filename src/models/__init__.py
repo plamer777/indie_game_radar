@@ -2,7 +2,7 @@ from .igdb import PopularityMetrics, IGDBMeta, TimeToBeat
 from .game import GameModel, RankedGameModel, GameSnapshot, AppModel
 from .publication import (
     GamePublicationRecord, PublishStatus, NewsPublicationRecord, DiscountPublication, RedditPostPublication,
-    ReviewPublication, GameLeaderboardPublication
+    GameLeaderboardPublication
 )
 from .reddit import RedditPost, RankedRedditPost
 from .checked_record import CheckedEntity

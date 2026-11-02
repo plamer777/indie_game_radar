@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 from datetime import datetime, timedelta
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel

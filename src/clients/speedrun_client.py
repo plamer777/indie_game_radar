@@ -6,7 +6,7 @@ from src.utils.logging import get_logger
 
 
 class SpeedrunClient:
-    """Асинхронный клиент для взаимодействия с Speedrun.com API с использованием httpx."""
+    """Async client for interacting with the Speedrun.com API using httpx."""
 
     def __init__(self, base_url: str = C.BASE_SPEEDRUN_URL) -> None:
         """The constructor method for SpeedrunClient class.
@@ -16,29 +16,29 @@ class SpeedrunClient:
         self.client = httpx.AsyncClient(base_url=base_url, timeout=C.SPEEDRUN_CLIENT_TIMEOUT)
 
     async def __aenter__(self):
-        """Поддержка асинхронного контекстного менеджера (async with)."""
+        """Async context manager support (async with)."""
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Закрытие HTTP-клиента при выходе из контекста."""
+        """Close the HTTP client when exiting the context."""
         await self.client.aclose()
 
     async def _fetch(self, endpoint: str, params: dict | None = None) -> Optional[Dict[str, Any]]:
-        """Внутренний метод для выполнения запросов и обработки ошибок."""
+        """Internal method for making requests and handling errors."""
         try:
-            # Асинхронный GET-запрос
+            # Async GET request
             response = await self.client.get(endpoint, params=params or None)
-            response.raise_for_status()  # Вызывает исключение для HTTP-ошибок 4xx/5xx
+            response.raise_for_status()  # Raises an exception for 4xx/5xx HTTP errors
 
-            # API Speedrun.com всегда возвращает JSON
+            # Speedrun.com API always returns JSON
             return response.json()
 
         except httpx.HTTPStatusError as e:
-            # Обработка ошибок, специфичных для API (например, не найдено - 404)
+            # Handle API-specific errors (e.g. not found - 404)
             self._log.error(f"❌ Ошибка HTTP при запросе к {endpoint}: {e}")
 
         except httpx.RequestError as e:
-            # Обработка ошибок сети или таймаута
+            # Handle network or timeout errors
             self._log.error(f"❌ Ошибка соединения при запросе к {endpoint}: {e}")
 
         except Exception as e:
@@ -47,13 +47,13 @@ class SpeedrunClient:
         return None
 
     async def search_game_id(self, name: str) -> Optional[str]:
-        """Найти ID игры по ее названию."""
-        # Эндпоинт для поиска: /games?name={name}
+        """Find a game ID by its name."""
+        # Search endpoint: /games?name={name}
         try:
             data = await self._fetch(f"games?name={name}")
 
             if data and data['data']:
-                # Возвращаем ID первой найденной игры
+                # Return the ID of the first matched game
                 return data['data'][0]['id']
         except Exception as e:
             self._log.error(f'Error while fetching game id: {e}')
@@ -68,18 +68,10 @@ class SpeedrunClient:
         return data.get('data', []) if data else data
 
     async def get_game_info(self, game_id: str) -> Optional[Dict[str, Any]]:
-        """Получить основные данные об игре (названия, год, разработчик)."""
-        # Эндпоинт: /games/{id}
+        """Get basic game data (names, year, developer)."""
+        # Endpoint: /games/{id}
         data = await self._fetch(f"games/{game_id}")
         return data.get('data', {}) if data else data
-
-    async def get_categories(self, game_id: str) -> Optional[List[Dict[str, Any]]]:
-        """Получить список категорий и подкатегорий (Any%, 100%, Glitchless и т.д.)."""
-        # Эндпоинт: /games/{id}/categories
-        data = await self._fetch(f"games/{game_id}/categories")
-        if data:
-            return data.get('data', [])
-        return None
 
     async def get_category(self, category_id: str) -> Optional[Dict[str, Any]]:
         """The method serves to retrieve a single category by provided id"""
@@ -93,14 +85,14 @@ class SpeedrunClient:
         miscellaneous: bool = True, skip_empty: bool = True
     ) -> Optional[List[Dict[str, Any]]]:
         """
-        Получить мировые рекорды для игры (по умолчанию - top 5 категорий).
+        Get world records for a game (top 5 categories by default).
 
-        Обратите внимание: API возвращает рекорды для всех категорий.
-        Параметр 'top' в API speedrun.com используется для ограничения количества рангов в каждой категории,
-        а не числа самих категорий, но в данном примере мы упростим.
+        Note: the API returns records for all categories.
+        The 'top' parameter in the speedrun.com API limits the number of ranks per category,
+        not the number of categories themselves, but we keep it simple here.
         """
-        # Эндпоинт: /games/{id}/records
-        # Параметр 'miscellaneous=yes' позволяет получить все категории
+        # Endpoint: /games/{id}/records
+        # The 'miscellaneous=yes' parameter fetches all categories
         endpoint = f"games/{game_id}/records"
         params = {'top': top, 'scope': scope, 'miscellaneous': miscellaneous, 'skip-empty': skip_empty}
         data = await self._fetch(endpoint, params=params)

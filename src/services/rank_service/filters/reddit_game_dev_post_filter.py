@@ -11,7 +11,7 @@ from src.services.rank_service.filters.base_filter import BaseFilter
 
 class RedditDevPostFilter(BaseFilter):
     """
-    Фильтр для постов, связанных с геймдевом, но не с конкретной игрой.
+    Filter for gamedev-related posts not tied to a specific game.
     """
 
     def __init__(
@@ -33,7 +33,7 @@ class RedditDevPostFilter(BaseFilter):
     async def filter_posts(self, posts: List[RankedRedditPost]) -> AsyncGenerator[RedditPostPublicationSchema, None]:
         now = datetime.now()
         for p in posts:
-            # 1️⃣ базовые проверки
+            # 1️⃣ basic checks
             if (now - p.created_at) > self.time_window:
                 continue
             if p.last_score < C.REDDIT_DEV_FILTER_MIN_RANK_SCORE:
@@ -43,7 +43,7 @@ class RedditDevPostFilter(BaseFilter):
             if p.link_flair_text and self._has_bad_flair(p.link_flair_text):
                 continue
 
-            # 2️⃣ контент-фильтр GPT
+            # 2️⃣ GPT content filter
             prompt = self._prompt_template.format(
                 title=p.title,
                 text=p.selftext

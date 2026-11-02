@@ -8,8 +8,8 @@ from src.schemas import RedditPostPublicationSchema
 
 class RedditMemeFilter:
     """
-    Фильтр для отбора качественных игровых мемов.
-    Проверяет только возраст и ранк-оценку.
+    Filter for selecting quality gaming memes.
+    Checks only age and rank score.
     """
 
     def __init__(
@@ -25,7 +25,7 @@ class RedditMemeFilter:
 
     def filter_posts(self, posts: list[RankedRedditPost]) -> list[RedditPostPublicationSchema]:
         """
-        Возвращает список мемов, прошедших базовую фильтрацию.
+        Returns the list of memes that passed basic filtering.
         """
         now = datetime.now()
         result = []
@@ -42,6 +42,6 @@ class RedditMemeFilter:
 
             result.append(RedditPostPublicationSchema(**p.model_dump()))
 
-        # сортировка по рейтингу, свежие — первыми
+        # sort by recency, freshest first
         result.sort(key=lambda x: x.created_utc, reverse=True)
         return result

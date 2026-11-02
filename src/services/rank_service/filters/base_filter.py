@@ -36,32 +36,32 @@ class BaseFilter(EmbeddingMixin):
         publishers = [publisher.lower() for publisher in game.publishers or []]
         price = game.price.final if game.price else 0
 
-        # 1. Прямое указание жанра
+        # 1. Explicit genre indicator
         if "indie" in genres or "indie" in tags or "indie" in description:
             indie_score = 2
         else:
             indie_score = 0
 
-        # 2. Независимая студия
+        # 2. Independent studio
         if (
             developers == publishers or not publishers or
                 all(publisher not in self.BIG_PUBLISHERS for publisher in publishers)
         ):
             indie_score += 1
 
-        # 3. Не часть франшизы
+        # 3. Not part of a franchise
         if not re.search(r"\b(remaster|ii|iii|iv|collection|deluxe|edition)\b", name):
             indie_score += 1
 
-        # 4. Масштаб
+        # 4. Scale
         if price <= 25:
             indie_score += 1
 
-        # 5. Визуальные признаки (по тегам)
+        # 5. Visual indicators (by tags)
         if any(keyword in tags for keyword in ("pixel", "lowpoly", "hand-drawn", "retro")):
             indie_score += 1
 
-        # Итог: >=3 из 5 признаков — вероятная инди-игра
+        # Result: >=3 of 5 indicators — likely an indie game
         return indie_score >= 3
 
     async def _is_content_valid(
@@ -117,7 +117,7 @@ class BaseFilter(EmbeddingMixin):
             )
 
             raw = response.choices[0].message.content.strip()
-            # Извлекаем JSON даже если модель добавила текст вокруг
+            # Extract JSON even if the model added surrounding text
             parsed = parse_json(raw)
             if parsed:
                 return parsed

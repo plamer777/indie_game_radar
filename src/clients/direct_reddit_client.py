@@ -32,8 +32,6 @@ class DirectRedditClient:
         self._ua_pool = list(ua_pool or C.DIRECT_REDDIT_CLIENT_DEFAULT_UA_POOL)
         self._fuzz_threshold = fuzz_threshold
         self._cache = {}
-        self._loop = asyncio.get_event_loop()
-      
         self._client = httpx.AsyncClient(
             http2=True,
             headers=C.DIRECT_REDDIT_CLIENT_DEFAULT_HEADERS,

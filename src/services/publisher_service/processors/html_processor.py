@@ -10,10 +10,10 @@ class HTMLProcessor:
         allowed_attrs: dict = TG_ALLOWED_ATTRS
     ) -> None:
         """
-        Инициализирует HTMLProcessor с настройками по умолчанию
-        :param allower_tags: Разрешённые теги
-        :param tag_mapping: Синонимы тегов
-        :param allowed_attrs: Разрешённые атрибуты
+        Initializes HTMLProcessor with default settings
+        :param allower_tags: allowed tags
+        :param tag_mapping: tag synonyms
+        :param allowed_attrs: allowed attributes
         """
         self._log = get_logger().bind(processor="html")
         self._allowed_tags = allower_tags
@@ -52,72 +52,72 @@ class HTMLProcessor:
         parent.remove(node)
 
     def clean(self, node):
-        # Рекурсивно чистим детей
+        # Recursively clean children
         for child in list(node):
             self.clean(child)
 
         tag = node.tag.lower() if isinstance(node.tag, str) else None
 
-        # пропускаем корень
+        # skip the root
         if tag == "root":
             return
 
-        # Преобразуем невалидные эквиваленты
+        # Convert invalid equivalents
         if tag in self._tag_mapping:
             node.tag = self._tag_mapping[tag]
             tag = node.tag
 
-        # Обработка tg-spoiler
+        # Handle tg-spoiler
         if tag == "span":
             cls = node.attrib.get("class")
             if cls == "tg-spoiler":
-                # span валиден, всё ок
+                # span is valid, all good
                 pass
             else:
-                # span без tg-spoiler должен быть размотан
+                # span without tg-spoiler must be unwrapped
                 self.unwrap(node)
                 return
 
         if tag == "tg-spoiler":
-            # Telegram допускает tg-spoiler как отдельный тег
+            # Telegram allows tg-spoiler as a standalone tag
             tag = "tg-spoiler"
             node.tag = "tg-spoiler"
 
-        # Если тег не разрешён — разматываем
+        # If the tag is not allowed — unwrap it
         if tag not in self._allowed_tags:
             self.unwrap(node)
             return
 
-        # Чистим атрибуты
+        # Clean attributes
         allowed_attrs = self._allowed_attrs.get(tag, set())
         for attr in list(node.attrib.keys()):
             if attr not in allowed_attrs:
                 del node.attrib[attr]
 
-        # Дополнительные правила:
-        # <span> только класс "tg-spoiler"
+        # Additional rules:
+        # <span> only allows class="tg-spoiler"
         if tag == "span":
             if node.attrib.get("class") != "tg-spoiler":
                 node.attrib.pop("class", None)
 
     def sanitize_telegram_html(self, text: str) -> str:
         """
-        Очищает HTML под Telegram:
-        - автоисправление структуры (закрытие тегов)
-        - маппинг «синонимов» на разрешённые теги
-        - удаление всех запрещённых тегов, сохраняя текст
-        - чистка атрибутов
+        Sanitizes HTML for Telegram:
+        - auto-fixes the structure (closes tags)
+        - maps "synonym" tags to allowed ones
+        - removes all disallowed tags while keeping the text
+        - cleans attributes
         """
         try:
             try:
                 root = html.fromstring(f"<root>{text}</root>")
             except etree.ParserError:
-                return text  # если совсем поломанный html
+                return text  # the HTML is completely broken
 
-            # Основная очистка
+            # Main cleanup
             self.clean(root)
 
-            # Сборка HTML обратно
+            # Reassemble the HTML
             return self.serialize(root) or text
         except Exception as e:
             self._log.error(f'Error while sanitizing the html for TG: {e}')
@@ -125,7 +125,7 @@ class HTMLProcessor:
         return text
 
     def serialize(self, node):
-        """Преобразует дерево обратно в HTML"""
+        """Converts the tree back to HTML"""
         output = []
 
         for child in node:
@@ -139,7 +139,7 @@ class HTMLProcessor:
 
         tag = node.tag
 
-        # открывающий тег
+        # opening tag
         attrs = " ".join(f'{k}="{v}"' for k, v in node.attrib.items())
         if attrs:
             start = f"<{tag} {attrs}>"
@@ -148,15 +148,15 @@ class HTMLProcessor:
 
         parts = [start]
 
-        # текст
+        # text
         if node.text:
             parts.append(node.text)
 
-        # дети
+        # children
         for child in node:
             parts.append(self.serialize_node(child))
 
-        # закрывающий тег
+        # closing tag
         parts.append(f"</{tag}>")
 
         # tail

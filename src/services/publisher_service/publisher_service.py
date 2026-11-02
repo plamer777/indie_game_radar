@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, UTC
 from openai import AsyncOpenAI
 from src.clients.telegram_client import TelegramPublisher
+from src.clients.tumblr_client import TumblrClient
 from src.db.repositories import (
     GamePublicationRepository, DiscountPublicationRepository, NewsPublicationRepository,
     RedditPostPublicationRepository, ReviewPublicationRepository, GameLeaderboardPublicationRepository
@@ -12,6 +13,7 @@ from src.services.base_service import BaseService
 from src.services.publisher_service.editors import EditorialRefiner
 from src.services.publisher_service.message_forwarders import TelegramAutoForwarder
 from src.services.publisher_service.renderers.tg_post_renderer import PostRenderer
+from src.services.publisher_service.renderers.tumblr_post_renderer import TumblrPostRenderer
 from src.utils.common import clean_text, execute_in_thread
 from src.utils.logging import get_logger
 from src.config import constants as C
@@ -28,6 +30,7 @@ class PublisherService(BaseService):
         open_ai_client: AsyncOpenAI,
         review_publication_repo: ReviewPublicationRepository,
         leaderboard_publication_repo: GameLeaderboardPublicationRepository,
+        tumblr_client: TumblrClient | None = None,
     ):
         self._game_publication_repo = publication_repo
         self._discount_publication_repo = discount_publication_repo
@@ -36,8 +39,10 @@ class PublisherService(BaseService):
         self._review_publication_repo = review_publication_repo
         self._leaderboard_publication_repo = leaderboard_publication_repo
         self._publisher = publisher
+        self._tumblr_client = tumblr_client
         self._log = get_logger().bind(service="PublisherService")
         self._renderer = PostRenderer()
+        self._tumblr_renderer = TumblrPostRenderer()
         self._editor = EditorialRefiner(open_ai_client)
         self._forwarder = TelegramAutoForwarder()
         self._repo_mapper = {
@@ -52,7 +57,7 @@ class PublisherService(BaseService):
 
     @execute_in_thread
     async def start_forwarder(self) -> None:
-        """Запускает авто-пересылку сообщений"""
+        """Starts automatic message forwarding"""
         try:
             await self._forwarder.start()
             self._log.info("forwarder_started")
@@ -60,7 +65,7 @@ class PublisherService(BaseService):
             self._log.error("forwarder_start_failed", error=str(e))
 
     async def count_published_for_today(self) -> int:
-        """Подсчитывает количество опубликованных постов за сегодня"""
+        """Counts posts published today"""
         start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
         end = datetime.now(UTC).replace(hour=23, minute=59, second=59, microsecond=999999)
         params = {
@@ -83,7 +88,7 @@ class PublisherService(BaseService):
         )
 
     async def schedule_publications(self, posts: list[AllocatedPostsSchema]):
-        """Публикует (или планирует) посты в соответствии с их временем"""
+        """Publishes (or schedules) posts according to their scheduled time"""
         cycle_log = self._log.bind(service="schedule_publications")
         cycle_log.info("start")
         published_count = 0
@@ -98,7 +103,7 @@ class PublisherService(BaseService):
         cycle_log.info("cycle_end", published=published_count)
 
     async def _handle_publication(self, record: AllocatedPostsSchema):
-        """Планирует или сразу публикует пост"""
+        """Schedules or immediately publishes a post"""
         publication_repo = self._repo_mapper.get(record.category)
         try:
             if record.category == 'news':
@@ -148,6 +153,11 @@ class PublisherService(BaseService):
                 record.post.status = PublishStatus.published
                 await publication_repo.mark_published(record.post)
                 self._log.info("publish_success", category=record.category, msg_id=msg_id)
+                
+                # Also publish to Tumblr if client is available
+                if self._tumblr_client:
+                    await self._publish_to_tumblr(record)
+                
                 return record
             else:
                 raise Exception("Telegram returned no message_id")
@@ -157,3 +167,36 @@ class PublisherService(BaseService):
             await publication_repo.mark_failed(record.post, error=str(e))
             self._log.error("publish_failed", category=record.category, error=str(e))
             return record
+
+    async def _publish_to_tumblr(self, record: AllocatedPostsSchema) -> None:
+        """Publish post to Tumblr after successful Telegram publication"""
+        try:
+            title, body, tags = self._tumblr_renderer.render(record)
+            
+            # Choose appropriate Tumblr post type based on category
+            if record.category == 'reddit_memes':
+                # Photo post for memes
+                image_url = record.post.url or (record.post.preview_images[0] if record.post.preview_images else None)
+                if image_url:
+                    post_id = await self._tumblr_client.publish_photo(
+                        caption=body,
+                        photo_url=image_url,
+                        tags=tags
+                    )
+                    if post_id:
+                        self._log.info("tumblr_publish_success", category=record.category, post_id=post_id)
+                    else:
+                        self._log.warning("tumblr_publish_failed", category=record.category)
+            else:
+                # Text post for other categories
+                post_id = await self._tumblr_client.publish_text(
+                    title=title,
+                    body=body,
+                    tags=tags
+                )
+                if post_id:
+                    self._log.info("tumblr_publish_success", category=record.category, post_id=post_id)
+                else:
+                    self._log.warning("tumblr_publish_failed", category=record.category)
+        except Exception as e:
+            self._log.error("tumblr_publish_error", category=record.category, error=str(e))
